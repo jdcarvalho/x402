@@ -85,8 +85,11 @@ export function paymentProxyFromHTTPServer(
   let bazaarPromise: Promise<void> | null = null;
   if (checkIfBazaarNeeded(httpServer.routes) && !httpServer.server.hasExtension("bazaar")) {
     bazaarPromise = import(/* webpackIgnore: true */ "@x402/extensions/bazaar")
-      .then(({ bazaarResourceServerExtension }) => {
+      .then(({ bazaarResourceServerExtension, validateDiscoveryExtension }) => {
         httpServer.server.registerExtension(bazaarResourceServerExtension);
+        validateBazaarExtensions(httpServer.routes, (ext: unknown) =>
+          validateDiscoveryExtension(ext as Parameters<typeof validateDiscoveryExtension>[0]),
+        );
       })
       .catch(err => {
         console.error("Failed to load bazaar extension:", err);
@@ -279,13 +282,14 @@ export function withX402FromHTTPServer<T = unknown>(
 ): (request: NextRequest) => Promise<NextResponse<T>> {
   const { init } = prepareHttpServer(httpServer, paywall, syncFacilitatorOnStart);
 
-  // Dynamically register bazaar extension if route declares it and not already registered
-  // Skip if pre-registered (e.g., in serverless environments where static imports are used)
   let bazaarPromise: Promise<void> | null = null;
   if (checkIfBazaarNeeded(httpServer.routes) && !httpServer.server.hasExtension("bazaar")) {
     bazaarPromise = import(/* webpackIgnore: true */ "@x402/extensions/bazaar")
-      .then(({ bazaarResourceServerExtension }) => {
+      .then(({ bazaarResourceServerExtension, validateDiscoveryExtension }) => {
         httpServer.server.registerExtension(bazaarResourceServerExtension);
+        validateBazaarExtensions(httpServer.routes, (ext: unknown) =>
+          validateDiscoveryExtension(ext as Parameters<typeof validateDiscoveryExtension>[0]),
+        );
       })
       .catch(err => {
         console.error("Failed to load bazaar extension:", err);
@@ -403,6 +407,30 @@ export function withX402<T = unknown>(
     paywall,
     syncFacilitatorOnStart,
   );
+}
+
+type ValidateFn = (ext: unknown) => { valid: boolean; errors?: string[] };
+
+function validateBazaarExtensions(routes: RoutesConfig, validate: ValidateFn): void {
+  const entries: [string, { extensions?: Record<string, unknown> }][] =
+    "accepts" in routes ? [["*", routes]] : Object.entries(routes);
+
+  for (const [pattern, config] of entries) {
+    const bazaarExt = config.extensions?.["bazaar"];
+    if (
+      bazaarExt &&
+      typeof bazaarExt === "object" &&
+      "info" in (bazaarExt as Record<string, unknown>) &&
+      "schema" in (bazaarExt as Record<string, unknown>)
+    ) {
+      const result = validate(bazaarExt);
+      if (!result.valid) {
+        console.warn(
+          `x402: Route "${pattern}" has an invalid bazaar extension: ${result.errors?.join(", ")}`,
+        );
+      }
+    }
+  }
 }
 
 export type {
