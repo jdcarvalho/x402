@@ -85,11 +85,9 @@ export function paymentProxyFromHTTPServer(
   let bazaarPromise: Promise<void> | null = null;
   if (checkIfBazaarNeeded(httpServer.routes) && !httpServer.server.hasExtension("bazaar")) {
     bazaarPromise = import(/* webpackIgnore: true */ "@x402/extensions/bazaar")
-      .then(({ bazaarResourceServerExtension, validateDiscoveryExtension }) => {
+      .then(({ bazaarResourceServerExtension, validateBazaarRouteExtensions }) => {
         httpServer.server.registerExtension(bazaarResourceServerExtension);
-        validateBazaarExtensions(httpServer.routes, (ext: unknown) =>
-          validateDiscoveryExtension(ext as Parameters<typeof validateDiscoveryExtension>[0]),
-        );
+        validateBazaarRouteExtensions(httpServer.routes);
       })
       .catch(err => {
         console.error("Failed to load bazaar extension:", err);
@@ -285,11 +283,9 @@ export function withX402FromHTTPServer<T = unknown>(
   let bazaarPromise: Promise<void> | null = null;
   if (checkIfBazaarNeeded(httpServer.routes) && !httpServer.server.hasExtension("bazaar")) {
     bazaarPromise = import(/* webpackIgnore: true */ "@x402/extensions/bazaar")
-      .then(({ bazaarResourceServerExtension, validateDiscoveryExtension }) => {
+      .then(({ bazaarResourceServerExtension, validateBazaarRouteExtensions }) => {
         httpServer.server.registerExtension(bazaarResourceServerExtension);
-        validateBazaarExtensions(httpServer.routes, (ext: unknown) =>
-          validateDiscoveryExtension(ext as Parameters<typeof validateDiscoveryExtension>[0]),
-        );
+        validateBazaarRouteExtensions(httpServer.routes);
       })
       .catch(err => {
         console.error("Failed to load bazaar extension:", err);
@@ -407,30 +403,6 @@ export function withX402<T = unknown>(
     paywall,
     syncFacilitatorOnStart,
   );
-}
-
-type ValidateFn = (ext: unknown) => { valid: boolean; errors?: string[] };
-
-function validateBazaarExtensions(routes: RoutesConfig, validate: ValidateFn): void {
-  const entries: [string, { extensions?: Record<string, unknown> }][] =
-    "accepts" in routes ? [["*", routes]] : Object.entries(routes);
-
-  for (const [pattern, config] of entries) {
-    const bazaarExt = config.extensions?.["bazaar"];
-    if (
-      bazaarExt &&
-      typeof bazaarExt === "object" &&
-      "info" in (bazaarExt as Record<string, unknown>) &&
-      "schema" in (bazaarExt as Record<string, unknown>)
-    ) {
-      const result = validate(bazaarExt);
-      if (!result.valid) {
-        console.warn(
-          `x402: Route "${pattern}" has an invalid bazaar extension: ${result.errors?.join(", ")}`,
-        );
-      }
-    }
-  }
 }
 
 export type {
