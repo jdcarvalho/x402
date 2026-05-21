@@ -210,6 +210,8 @@ def handle_enrich_settlement_payload(
         requested = int(raw_amount)
         if requested <= 0:
             raise ValueError(ERR_REFUND_AMOUNT_INVALID)
+        if requested > remainder:
+            raise ValueError(ERR_REFUND_NO_BALANCE)
         refund_amount_int = requested
 
     refund_amount = str(refund_amount_int)

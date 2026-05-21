@@ -163,8 +163,10 @@ class TestRefundChannel:
         result = refund_channel(deps, "http://example/test", RefundOptions(fetch=fetch))
         assert result.success is True
         assert result.transaction == "0xref"
-        # Storage cleared since balance is 0.
-        assert deps.storage.get(cid) is None
+        # Sentinel kept (balance="0") so a subsequent refund fails locally.
+        ctx = deps.storage.get(cid)
+        assert ctx is not None
+        assert ctx.balance == "0"
         assert len(fetch.calls) == 2
 
     def test_probe_non_402_raises(self):

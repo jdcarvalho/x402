@@ -102,7 +102,7 @@ class TestHandlePaymentResponse:
         assert got is not None
         assert got.balance == "50"
 
-    def test_refund_with_zero_balance_deletes_channel(self):
+    def test_refund_with_zero_balance_keeps_sentinel_channel(self):
         deps = _deps()
         deps.storage.set("0xabc", BatchSettlementClientContext(balance="500"))
         handle_batch_settlement_payment_response(
@@ -116,7 +116,10 @@ class TestHandlePaymentResponse:
                 settle_response=_settle(balance="0"),
             ),
         )
-        assert deps.storage.get("0xabc") is None
+        # Full refund keeps a sentinel so the next refund fails locally.
+        ctx = deps.storage.get("0xabc")
+        assert ctx is not None
+        assert ctx.balance == "0"
 
     def test_refund_without_channel_id_in_extra_is_noop(self):
         deps = _deps()

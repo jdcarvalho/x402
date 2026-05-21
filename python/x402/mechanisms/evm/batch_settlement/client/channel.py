@@ -114,22 +114,19 @@ def update_channel_after_refund(
 ) -> None:
     """Reconcile local channel state with the outcome of a cooperative refund.
 
-    Deletes the channel record when the post-refund balance is zero (full
-    refund); otherwise updates local state from the server snapshot.
+    After a partial refund updates local balance from the server snapshot.
+    After a full refund (balance == 0) keeps a sentinel record so subsequent
+    refund attempts fail locally with "no remaining balance" rather than
+    triggering unnecessary network I/O.
     """
     channel_state = _read_response_channel_state(settle_extra)
     if channel_state is None:
         storage.delete(channel_key)
         return
 
-    balance_after: int | None = None
-    if channel_state.balance is not None:
-        try:
-            balance_after = int(channel_state.balance)
-        except ValueError:
-            balance_after = None
-
-    if balance_after is None or balance_after <= 0:
+    try:
+        balance_after = int(channel_state.balance)
+    except (ValueError, TypeError):
         storage.delete(channel_key)
         return
 

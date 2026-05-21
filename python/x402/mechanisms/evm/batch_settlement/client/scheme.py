@@ -123,6 +123,7 @@ class BatchSettlementEvmScheme:
 
         validate_deposit_policy(self._deposit_policy)
         self.scheme_hooks = _BatchSettlementSchemeHooks(self)
+        self._url_channel_map: dict[str, str] = {}
 
     # ------------------------------------------------------------------ API
 
@@ -220,7 +221,7 @@ class BatchSettlementEvmScheme:
 
     def refund(self, url: str, options: RefundOptions | None = None) -> SettleResponse:
         """Send a cooperative refund request for the channel backing `url`."""
-        return refund_channel(self._deps(), url, options)
+        return refund_channel(self._deps(), url, options, _url_cache=self._url_channel_map)
 
     def process_settle_response(self, settle: SettleResponse) -> None:
         """Update local channel state from a server settle response."""

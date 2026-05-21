@@ -68,16 +68,42 @@ def refund_channel(
     deps: BatchSettlementClientDeps,
     url: str,
     options: RefundOptions | None = None,
+    *,
+    _url_cache: dict[str, str] | None = None,
 ) -> SettleResponse:
     """Send a cooperative refund request to the channel that backs `url`.
 
     The `fetch` callable signature is `(url, headers) -> _RefundResponse`. A
     default implementation backed by `httpx` is used when none is supplied.
+
+    `_url_cache` is an optional caller-managed dict mapping URL → channel_id.
+    When provided, a cached channel_id enables a local pre-check that avoids any
+    network I/O when the channel is already drained.
     """
     opts = options or RefundOptions()
     fetch = opts.fetch or _default_fetch
     refund_amount = _normalize_refund_amount(opts.amount)
+
+    # Fast-path: if we have a cached channel_id for this URL, check balance
+    # locally before making any network request.
+    if _url_cache is not None:
+        cached_id = _url_cache.get(url)
+        if cached_id is not None:
+            ch = deps.storage.get(cached_id)
+            if ch is not None:
+                charged = ch.charged_cumulative_amount or "0"
+                if ch.balance is not None and int(ch.balance) <= int(charged):
+                    raise RuntimeError(
+                        f"Refund failed: channel has no remaining balance "
+                        f"(balance={ch.balance}, chargedCumulativeAmount={charged})"
+                    )
+
     probe = _probe_refund_requirements(url, fetch)
+
+    # Populate cache with the channel_id discovered from the probe requirements.
+    if _url_cache is not None:
+        _url_cache[url] = _channel_key(deps, probe.requirements)
+
     return _execute_refund(deps, url, probe, refund_amount, fetch)
 
 
@@ -132,12 +158,6 @@ def _execute_refund(
         settle_response = (
             decode_payment_response_header(settle_header) if settle_header else None
         )
-        recovered = False
-        if response.status == 402:
-            payment_required = _get_refund_payment_required(response)
-            recovered = process_corrective_payment_required(deps, payment_required)
-            if recovered:
-                pass
 
         if settle_response is not None:
             channel_id_key = _channel_key(deps, probe.requirements)
@@ -152,14 +172,14 @@ def _execute_refund(
             return settle_response
 
         if response.status == 402:
-            if recovered and attempt < max_attempts:
+            payment_required = _get_refund_payment_required(response)
+            # Best-effort state resync before retrying; ignore return value.
+            process_corrective_payment_required(deps, payment_required)
+            if attempt < max_attempts:
                 continue
-            if recovered:
-                raise RuntimeError(
-                    f"Refund failed: server returned 402 after {attempt} attempt(s)"
-                )
-            corrective = _get_refund_payment_required(response)
-            raise RuntimeError(f"Refund failed: {corrective.error or 'unknown'}")
+            raise RuntimeError(
+                f"Refund failed: server returned 402 after {attempt} attempt(s)"
+            )
 
         raise RuntimeError(
             f"Refund response missing PAYMENT-RESPONSE header (status {response.status})"

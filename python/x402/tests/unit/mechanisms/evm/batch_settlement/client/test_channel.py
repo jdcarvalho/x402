@@ -181,7 +181,7 @@ class TestUpdateChannelAfterRefund:
         update_channel_after_refund(storage, "0xabc", None)
         assert storage.get("0xabc") is None
 
-    def test_zero_balance_deletes_record(self):
+    def test_zero_balance_keeps_sentinel_record(self):
         storage = InMemoryClientChannelStorage()
         storage.set("0xabc", BatchSettlementClientContext(balance="100"))
         update_channel_after_refund(
@@ -195,7 +195,12 @@ class TestUpdateChannelAfterRefund:
                 }
             },
         )
-        assert storage.get("0xabc") is None
+        # Full refund: sentinel kept so subsequent refund attempts fail locally
+        # with "no remaining balance" rather than triggering unnecessary I/O.
+        ctx = storage.get("0xabc")
+        assert ctx is not None
+        assert ctx.balance == "0"
+        assert ctx.total_claimed == "100"
 
     def test_remaining_balance_updates_record(self):
         storage = InMemoryClientChannelStorage()
