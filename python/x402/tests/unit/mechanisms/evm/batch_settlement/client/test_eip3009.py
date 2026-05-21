@@ -30,9 +30,7 @@ try:
     from x402.mechanisms.evm.signers import EthAccountSigner
     from x402.schemas import PaymentRequirements
 except ImportError:
-    pytest.skip(
-        "batch_settlement requires evm extras", allow_module_level=True
-    )
+    pytest.skip("batch_settlement requires evm extras", allow_module_level=True)
 
 
 NETWORK = "eip155:84532"
@@ -40,9 +38,7 @@ CHAIN_ID = 84532
 TOKEN = "0x036CbD53842c5426634e7929541eC2318f3dCF7e"
 RECEIVER = "0x3333333333333333333333333333333333333333"
 RECEIVER_AUTHORIZER = "0x4444444444444444444444444444444444444444"
-TEST_PRIVATE_KEY = (
-    "0xa915e4eaadfaa5e6f59574d2c8e1d2a4cd2b6c0c0b9f6a3c7d9e2b8f5a4e3c2d"
-)
+TEST_PRIVATE_KEY = "0xa915e4eaadfaa5e6f59574d2c8e1d2a4cd2b6c0c0b9f6a3c7d9e2b8f5a4e3c2d"
 
 
 def _signer() -> EthAccountSigner:

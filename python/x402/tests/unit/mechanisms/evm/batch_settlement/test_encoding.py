@@ -15,9 +15,7 @@ try:
         build_permit2_collector_data,
     )
 except ImportError:
-    pytest.skip(
-        "batch_settlement requires evm extras", allow_module_level=True
-    )
+    pytest.skip("batch_settlement requires evm extras", allow_module_level=True)
 
 
 CHANNEL_ID = "0x" + "11" * 32

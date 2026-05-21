@@ -154,9 +154,7 @@ class BatchSettlementEvmScheme:
         max_claimable_amount = str(base_cumulative + request_amount)
 
         current_balance = int(batched_ctx.balance or "0")
-        needs_top_up = (
-            not needs_initial_deposit and int(max_claimable_amount) > current_balance
-        )
+        needs_top_up = not needs_initial_deposit and int(max_claimable_amount) > current_balance
 
         if needs_initial_deposit or needs_top_up:
             computed_deposit = deposit_amount_for_request(self._deposit_policy, request_amount)
@@ -208,9 +206,7 @@ class BatchSettlementEvmScheme:
             )
             result = deposit_payload.to_dict()
             if extensions:
-                ext_data = self._try_sign_extensions_for_permit2(
-                    requirements, result, extensions
-                )
+                ext_data = self._try_sign_extensions_for_permit2(requirements, result, extensions)
                 if ext_data:
                     result["__extensions"] = ext_data
             return result
@@ -227,9 +223,7 @@ class BatchSettlementEvmScheme:
         """Update local channel state from a server settle response."""
         process_settle_response(self._storage, settle)
 
-    def process_corrective_payment_required(
-        self, payment_required: PaymentRequired
-    ) -> bool:
+    def process_corrective_payment_required(self, payment_required: PaymentRequired) -> bool:
         """Resync local channel state from a corrective 402 response."""
         return process_corrective_payment_required(self._deps(), payment_required)
 
@@ -310,8 +304,11 @@ class BatchSettlementEvmScheme:
 
         try:
             allowance = self._signer.read_contract(
-                token_address, ERC20_ALLOWANCE_ABI, "allowance",
-                self._signer.address, PERMIT2_ADDRESS,
+                token_address,
+                ERC20_ALLOWANCE_ABI,
+                "allowance",
+                self._signer.address,
+                PERMIT2_ADDRESS,
             )
             if int(allowance) >= int(requirements.amount):
                 return None
@@ -324,13 +321,19 @@ class BatchSettlementEvmScheme:
         deadline = permit2_auth.get("deadline", "")
         if not deadline:
             import time
+
             deadline = str(int(time.time()) + (requirements.max_timeout_seconds or 3600))
 
         deposit_amount = deposit.get("amount", requirements.amount)
 
         info = sign_eip2612_permit(
-            self._signer, token_address, token_name, token_version,
-            chain_id, deadline, deposit_amount,
+            self._signer,
+            token_address,
+            token_name,
+            token_version,
+            chain_id,
+            deadline,
+            deposit_amount,
         )
         return {EIP2612_GAS_SPONSORING_KEY: {"info": info.to_dict()}}
 
@@ -357,8 +360,11 @@ class BatchSettlementEvmScheme:
         if isinstance(self._signer, ClientEvmSignerWithReadContract):
             try:
                 allowance = self._signer.read_contract(
-                    token_address, ERC20_ALLOWANCE_ABI, "allowance",
-                    self._signer.address, PERMIT2_ADDRESS,
+                    token_address,
+                    ERC20_ALLOWANCE_ABI,
+                    "allowance",
+                    self._signer.address,
+                    PERMIT2_ADDRESS,
                 )
                 if int(allowance) >= int(requirements.amount):
                     return None

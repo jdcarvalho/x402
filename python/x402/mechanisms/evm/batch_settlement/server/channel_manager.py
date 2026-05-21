@@ -49,12 +49,8 @@ class AutoSettlementContext:
     pending_settle: bool
 
 
-ClaimChannelSelector = Callable[
-    [list[Channel], AutoSettlementContext], list[Channel]
-]
-RefundChannelSelector = Callable[
-    [list[Channel], AutoSettlementContext], list[Channel]
-]
+ClaimChannelSelector = Callable[[list[Channel], AutoSettlementContext], list[Channel]]
+RefundChannelSelector = Callable[[list[Channel], AutoSettlementContext], list[Channel]]
 
 
 @dataclass
@@ -107,10 +103,7 @@ def _format_facilitator_failure(operation: str, response: SettleResponse) -> str
 
 
 def _has_live_pending_request(channel: Channel, now_ms: int) -> bool:
-    return (
-        channel.pending_request is not None
-        and channel.pending_request.expires_at > now_ms
-    )
+    return channel.pending_request is not None and channel.pending_request.expires_at > now_ms
 
 
 class BatchSettlementChannelManager:
@@ -156,9 +149,7 @@ class BatchSettlementChannelManager:
         self._pending_settle = False
         return SettleResult(transaction=response.transaction)
 
-    def claim_and_settle(
-        self, opts: ClaimOptions | None = None
-    ) -> dict[str, Any]:
+    def claim_and_settle(self, opts: ClaimOptions | None = None) -> dict[str, Any]:
         claims = self.claim(opts)
         settle: SettleResult | None = None
         if claims:
@@ -183,16 +174,12 @@ class BatchSettlementChannelManager:
         targets = self._get_idle_channels_for_refund(idle_secs)
         return self._refund_channels(targets)
 
-    def get_claimable_vouchers(
-        self, idle_secs: int | None = None
-    ) -> list[VoucherClaim]:
+    def get_claimable_vouchers(self, idle_secs: int | None = None) -> list[VoucherClaim]:
         channels = self._scheme.get_storage().list()
         return self._get_claimable_vouchers_from_channels(channels, idle_secs)
 
     def get_withdrawal_pending_sessions(self) -> list[Channel]:
-        return [
-            c for c in self._scheme.get_storage().list() if c.withdraw_requested_at > 0
-        ]
+        return [c for c in self._scheme.get_storage().list() if c.withdraw_requested_at > 0]
 
     # ----------------------------------------------------------------- auto loop
 

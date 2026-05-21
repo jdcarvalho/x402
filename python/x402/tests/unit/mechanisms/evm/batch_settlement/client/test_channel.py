@@ -26,14 +26,10 @@ try:
     from x402.mechanisms.evm.batch_settlement.constants import MIN_WITHDRAW_DELAY
     from x402.mechanisms.evm.signers import EthAccountSigner
 except ImportError:
-    pytest.skip(
-        "batch_settlement requires evm extras", allow_module_level=True
-    )
+    pytest.skip("batch_settlement requires evm extras", allow_module_level=True)
 
 
-TEST_PRIVATE_KEY = (
-    "0xa915e4eaadfaa5e6f59574d2c8e1d2a4cd2b6c0c0b9f6a3c7d9e2b8f5a4e3c2d"
-)
+TEST_PRIVATE_KEY = "0xa915e4eaadfaa5e6f59574d2c8e1d2a4cd2b6c0c0b9f6a3c7d9e2b8f5a4e3c2d"
 
 
 def _signer() -> EthAccountSigner:
@@ -75,15 +71,11 @@ class TestBuildChannelConfig:
         cfg = build_channel_config(_deps(), _requirements())
         assert cfg.payer == to_checksum_address(_signer().address)
         assert cfg.payer_authorizer == cfg.payer  # default to payer
-        assert cfg.receiver == to_checksum_address(
-            "0x3333333333333333333333333333333333333333"
-        )
+        assert cfg.receiver == to_checksum_address("0x3333333333333333333333333333333333333333")
         assert cfg.receiver_authorizer == to_checksum_address(
             "0x4444444444444444444444444444444444444444"
         )
-        assert cfg.token == to_checksum_address(
-            "0x5555555555555555555555555555555555555555"
-        )
+        assert cfg.token == to_checksum_address("0x5555555555555555555555555555555555555555")
         assert cfg.withdraw_delay == MIN_WITHDRAW_DELAY
 
     def test_explicit_payer_authorizer(self):

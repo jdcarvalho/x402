@@ -34,9 +34,7 @@ try:
     from x402.mechanisms.evm.batch_settlement.types import ChannelConfig
     from x402.mechanisms.evm.batch_settlement.utils import compute_channel_id
 except ImportError:
-    pytest.skip(
-        "batch_settlement requires evm extras", allow_module_level=True
-    )
+    pytest.skip("batch_settlement requires evm extras", allow_module_level=True)
 
 
 NETWORK = "eip155:84532"
@@ -117,10 +115,7 @@ class TestChannelIdsEqual:
 class TestErc3009AuthorizationTimeInvalidReason:
     def test_expired_valid_before(self):
         # valid_before well in the past → expired
-        assert (
-            erc3009_authorization_time_invalid_reason(0, 1)
-            == ERR_VALID_BEFORE_EXPIRED
-        )
+        assert erc3009_authorization_time_invalid_reason(0, 1) == ERR_VALID_BEFORE_EXPIRED
 
     def test_valid_after_in_future(self):
         # 100 years in the future
@@ -132,10 +127,7 @@ class TestErc3009AuthorizationTimeInvalidReason:
         import time
 
         now = int(time.time())
-        assert (
-            erc3009_authorization_time_invalid_reason(now - 60, now + 3600)
-            is None
-        )
+        assert erc3009_authorization_time_invalid_reason(now - 60, now + 3600) is None
 
 
 class TestValidateChannelConfig:
@@ -154,9 +146,7 @@ class TestValidateChannelConfig:
 
     def test_receiver_mismatch(self):
         cfg, cid = self._config_with_id()
-        result = validate_channel_config(
-            cfg, cid, _requirements(pay_to="0x" + "99" * 20)
-        )
+        result = validate_channel_config(cfg, cid, _requirements(pay_to="0x" + "99" * 20))
         assert result == ERR_RECEIVER_MISMATCH
 
     def test_receiver_authorizer_mismatch(self):
@@ -168,9 +158,7 @@ class TestValidateChannelConfig:
 
     def test_receiver_authorizer_required(self):
         cfg, cid = self._config_with_id()
-        result = validate_channel_config(
-            cfg, cid, _requirements(receiver_authorizer=None)
-        )
+        result = validate_channel_config(cfg, cid, _requirements(receiver_authorizer=None))
         assert result == ERR_RECEIVER_AUTHORIZER_MISMATCH
 
     def test_zero_receiver_authorizer_rejected(self):
@@ -182,16 +170,12 @@ class TestValidateChannelConfig:
 
     def test_token_mismatch(self):
         cfg, cid = self._config_with_id()
-        result = validate_channel_config(
-            cfg, cid, _requirements(asset="0x" + "99" * 20)
-        )
+        result = validate_channel_config(cfg, cid, _requirements(asset="0x" + "99" * 20))
         assert result == ERR_TOKEN_MISMATCH
 
     def test_withdraw_delay_mismatch_when_extra_provided(self):
         cfg, cid = self._config_with_id()
-        result = validate_channel_config(
-            cfg, cid, _requirements(withdraw_delay=3600)
-        )
+        result = validate_channel_config(cfg, cid, _requirements(withdraw_delay=3600))
         assert result == ERR_WITHDRAW_DELAY_MISMATCH
 
     def test_withdraw_delay_below_min(self):

@@ -173,9 +173,7 @@ def _wait_for_balance(w3: Web3, channel_id: str, timeout_s: float = 30.0) -> int
     raise AssertionError(f"Timed out waiting for channel {channel_id} balance > 0")
 
 
-def _wait_for_claimed(
-    w3: Web3, channel_id: str, expected: int, timeout_s: float = 8.0
-) -> int:
+def _wait_for_claimed(w3: Web3, channel_id: str, expected: int, timeout_s: float = 8.0) -> int:
     """Poll until totalClaimed >= expected; return the observed totalClaimed."""
     deadline = time.time() + timeout_s
     last = 0
@@ -190,9 +188,7 @@ def _wait_for_claimed(
     )
 
 
-def _wait_for_balance_eq(
-    w3: Web3, channel_id: str, expected: int, timeout_s: float = 6.0
-) -> int:
+def _wait_for_balance_eq(w3: Web3, channel_id: str, expected: int, timeout_s: float = 6.0) -> int:
     deadline = time.time() + timeout_s
     last = -1
     while time.time() < deadline:
@@ -201,9 +197,7 @@ def _wait_for_balance_eq(
         if balance == expected:
             return balance
         time.sleep(0.2)
-    raise AssertionError(
-        f"Channel {channel_id} balance != {expected} (last observed {last})"
-    )
+    raise AssertionError(f"Channel {channel_id} balance != {expected} (last observed {last})")
 
 
 class _Pipeline:
@@ -235,9 +229,7 @@ class _Pipeline:
             BatchSettlementEvmSchemeOptions(
                 storage=self.client_storage,
                 salt=self.channel_salt,
-                deposit_policy=BatchSettlementDepositPolicy(
-                    deposit_multiplier=deposit_multiplier
-                ),
+                deposit_policy=BatchSettlementDepositPolicy(deposit_multiplier=deposit_multiplier),
             ),
         )
         self.x402_client = x402ClientSync().register(NETWORK, self.client_scheme)
@@ -272,9 +264,7 @@ class _Pipeline:
     def direct_pay(self, amount: str) -> SettleResponse:
         """One direct-API paid request: verify + settle + process_settle_response."""
         accepts = [self.requirements(amount)]
-        payment_required = self.x402_server.create_payment_required_response(
-            accepts, _resource()
-        )
+        payment_required = self.x402_server.create_payment_required_response(accepts, _resource())
         payload = self.x402_client.create_payment_payload(payment_required)
         accepted = self.x402_server.find_matching_requirements(accepts, payload)
         assert accepted is not None
@@ -315,9 +305,7 @@ class _HTTPServerHandle:
             self._thread.join(timeout=2.0)
 
 
-def _start_flask_resource_server(
-    pipe: _Pipeline, route: str, price: str
-) -> _HTTPServerHandle:
+def _start_flask_resource_server(pipe: _Pipeline, route: str, price: str) -> _HTTPServerHandle:
     """Start a Flask app protected by the batch-settlement scheme on a free port."""
     app = Flask(f"x402-batched-test-{secrets.token_hex(4)}")
 
@@ -341,9 +329,7 @@ def _start_flask_resource_server(
             },
         }
     }
-    flask_payment_middleware(
-        app, routes, pipe.x402_server, sync_facilitator_on_start=False
-    )
+    flask_payment_middleware(app, routes, pipe.x402_server, sync_facilitator_on_start=False)
 
     port = _free_port()
     server = make_server("127.0.0.1", port, app)
@@ -420,16 +406,12 @@ class TestBatchSettlementMultiVoucherClaimSettle:
         for _ in range(3):
             pipe.direct_pay("500")
 
-        manager = pipe.server_scheme.create_channel_manager(
-            pipe.facilitator_client, NETWORK
-        )
+        manager = pipe.server_scheme.create_channel_manager(pipe.facilitator_client, NETWORK)
         claimable = manager.get_claimable_vouchers()
         assert len(claimable) == 1, f"expected 1 claimable entry, got {len(claimable)}"
 
         results = manager.claim(ClaimOptions(max_claims_per_batch=50))
-        assert len(results) == 1 and results[0].transaction, (
-            f"expected 1 claim tx, got {results}"
-        )
+        assert len(results) == 1 and results[0].transaction, f"expected 1 claim tx, got {results}"
 
         _wait_for_claimed(pipe.w3, channel_id, expected=2000)  # 4 requests * 500
 
@@ -499,9 +481,7 @@ class TestBatchSettlementRefundNonRecoverableFastFail:
 
             start = time.time()
             with pytest.raises(RuntimeError) as exc:
-                pipe.client_scheme.refund(
-                    handle.url, RefundOptions(amount="999999999")
-                )
+                pipe.client_scheme.refund(handle.url, RefundOptions(amount="999999999"))
             elapsed = time.time() - start
 
             msg = str(exc.value)
@@ -532,9 +512,7 @@ class TestBatchSettlementAutoClaimTick:
             channel_id = pipe.channel_id_for(pipe.requirements("300"))
             _wait_for_balance(pipe.w3, channel_id)
 
-            manager = pipe.server_scheme.create_channel_manager(
-                pipe.facilitator_client, NETWORK
-            )
+            manager = pipe.server_scheme.create_channel_manager(pipe.facilitator_client, NETWORK)
             claim_events: list[ClaimResult] = []
             error_events: list[BaseException] = []
             claim_signal = threading.Event()
@@ -583,9 +561,7 @@ class TestBatchSettlementAutoClaimAndSettleTick:
             channel_id = pipe.channel_id_for(pipe.requirements("300"))
             _wait_for_balance(pipe.w3, channel_id)
 
-            manager = pipe.server_scheme.create_channel_manager(
-                pipe.facilitator_client, NETWORK
-            )
+            manager = pipe.server_scheme.create_channel_manager(pipe.facilitator_client, NETWORK)
             claim_events: list[ClaimResult] = []
             settle_events: list[SettleResult] = []
             error_events: list[BaseException] = []
@@ -655,9 +631,7 @@ class TestBatchSettlementWithdrawalPendingRefund:
 
             storage.update_channel(channel_id, mark_withdraw)
 
-            manager = pipe.server_scheme.create_channel_manager(
-                pipe.facilitator_client, NETWORK
-            )
+            manager = pipe.server_scheme.create_channel_manager(pipe.facilitator_client, NETWORK)
             pending = manager.get_withdrawal_pending_sessions()
             assert len(pending) == 1
             assert pending[0].channel_id.lower() == channel_id
@@ -689,9 +663,7 @@ class TestBatchSettlementRefundRecoverableRetryExhaustion:
         )
 
         pipe = _Pipeline()
-        deposit_handle = _start_flask_resource_server(
-            pipe, "/api/refund-retry", "$0.0005"
-        )
+        deposit_handle = _start_flask_resource_server(pipe, "/api/refund-retry", "$0.0005")
         try:
             _make_paid_request(pipe, deposit_handle.url)
             channel_id = pipe.channel_id_for(pipe.requirements("500"))

@@ -75,9 +75,7 @@ ERR_ERC20_APPROVAL_INVALID_FORMAT = "invalid_batch_settlement_evm_erc20_approval
 ERR_ERC20_APPROVAL_FROM_MISMATCH = "invalid_batch_settlement_evm_erc20_approval_from_mismatch"
 ERR_ERC20_APPROVAL_ASSET_MISMATCH = "invalid_batch_settlement_evm_erc20_approval_asset_mismatch"
 ERR_ERC20_APPROVAL_WRONG_SPENDER = "invalid_batch_settlement_evm_erc20_approval_wrong_spender"
-ERR_ERC20_APPROVAL_BROADCAST_FAILED = (
-    "invalid_batch_settlement_evm_erc20_approval_broadcast_failed"
-)
+ERR_ERC20_APPROVAL_BROADCAST_FAILED = "invalid_batch_settlement_evm_erc20_approval_broadcast_failed"
 
 ERR_RPC_READ_FAILED = "invalid_batch_settlement_evm_rpc_read_failed"
 ERR_WAIT_FOR_RECEIPT_FAILED = "invalid_batch_settlement_evm_wait_for_receipt_failed"

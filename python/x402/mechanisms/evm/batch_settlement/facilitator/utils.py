@@ -70,9 +70,7 @@ def channel_ids_equal(a: str, b: Any) -> bool:
     return norm(a) == norm(b)
 
 
-def erc3009_authorization_time_invalid_reason(
-    valid_after: int, valid_before: int
-) -> str | None:
+def erc3009_authorization_time_invalid_reason(valid_after: int, valid_before: int) -> str | None:
     """Validates the time window of an ERC-3009 ReceiveWithAuthorization."""
     now = int(time.time())
     if valid_before < now + 6:
@@ -175,9 +173,7 @@ def validate_channel_config(
     return None
 
 
-def read_channel_state(
-    signer: FacilitatorEvmSigner, channel_id: str
-) -> ChannelState:
+def read_channel_state(signer: FacilitatorEvmSigner, channel_id: str) -> ChannelState:
     """Read onchain channel state via a 3-call multicall."""
     target = to_checksum_address(BATCH_SETTLEMENT_ADDRESS)
     channel_id_bytes = coerce_bytes32(channel_id)
@@ -207,9 +203,7 @@ def read_channel_state(
     )
 
     if any(not r.success for r in results):
-        raise RuntimeError(
-            f"{ERR_RPC_READ_FAILED}: multicall returned failure for {channel_id}"
-        )
+        raise RuntimeError(f"{ERR_RPC_READ_FAILED}: multicall returned failure for {channel_id}")
 
     ch_balance, ch_total_claimed = _unpack_pair(results[0].result)
     _, wd_initiated_at = _unpack_pair(results[1].result)

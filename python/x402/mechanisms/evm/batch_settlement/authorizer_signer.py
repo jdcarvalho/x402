@@ -55,8 +55,10 @@ class LocalAuthorizerSigner:
             message_data=message,
         )
         signed = self._account.sign_message(signable)
-        return signed.signature.hex() if signed.signature.hex().startswith("0x") else (
-            "0x" + signed.signature.hex()
+        return (
+            signed.signature.hex()
+            if signed.signature.hex().startswith("0x")
+            else ("0x" + signed.signature.hex())
         )
 
 

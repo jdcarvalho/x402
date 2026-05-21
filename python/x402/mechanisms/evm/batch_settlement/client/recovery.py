@@ -93,9 +93,7 @@ def recover_from_signature(
 
     if not hasattr(deps.signer, "read_contract"):
         return False
-    ch_balance, ch_total_claimed = read_channel_balance_and_total_claimed(
-        deps.signer, channel_id
-    )
+    ch_balance, ch_total_claimed = read_channel_balance_and_total_claimed(deps.signer, channel_id)
 
     if charged < ch_total_claimed:
         return False
@@ -145,9 +143,7 @@ def recover_from_onchain_state(
         return False
     config = build_channel_config(deps, accept)
     channel_id = compute_channel_id(config, str(accept.network))
-    ch_balance, ch_total_claimed = read_channel_balance_and_total_claimed(
-        deps.signer, channel_id
-    )
+    ch_balance, ch_total_claimed = read_channel_balance_and_total_claimed(deps.signer, channel_id)
     ctx = BatchSettlementClientContext(
         charged_cumulative_amount=str(ch_total_claimed),
         balance=str(ch_balance),

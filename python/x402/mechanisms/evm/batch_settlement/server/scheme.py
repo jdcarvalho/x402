@@ -141,21 +141,15 @@ class BatchSettlementEvmScheme:
             if context.local_verify:
                 existing.local_verify = context.local_verify
 
-    def read_request_context(
-        self, payload: PaymentPayload
-    ) -> BatchSettlementRequestContext | None:
+    def read_request_context(self, payload: PaymentPayload) -> BatchSettlementRequestContext | None:
         with self._request_lock:
             return self._request_contexts.get(id(payload))
 
-    def take_request_context(
-        self, payload: PaymentPayload
-    ) -> BatchSettlementRequestContext | None:
+    def take_request_context(self, payload: PaymentPayload) -> BatchSettlementRequestContext | None:
         with self._request_lock:
             return self._request_contexts.pop(id(payload), None)
 
-    def remember_channel_snapshot(
-        self, payload: PaymentPayload, channel: Channel
-    ) -> None:
+    def remember_channel_snapshot(self, payload: PaymentPayload, channel: Channel) -> None:
         self.merge_request_context(
             payload,
             BatchSettlementRequestContext(
@@ -277,9 +271,7 @@ class BatchSettlementEvmScheme:
             extra["assetTransferMethod"] = atm
         return AssetAmount(amount=str(token_amount), asset=asset["address"], extra=extra)
 
-    def before_verify(
-        self, context: VerifyContext
-    ) -> AbortResult | SkipVerifyResult | None:
+    def before_verify(self, context: VerifyContext) -> AbortResult | SkipVerifyResult | None:
         from .verify import handle_before_verify
 
         return handle_before_verify(self, context)
@@ -289,24 +281,18 @@ class BatchSettlementEvmScheme:
 
         return handle_after_verify(self, context)
 
-    def on_verify_failure(
-        self, context: VerifyFailureContext
-    ) -> RecoveredVerifyResult | None:
+    def on_verify_failure(self, context: VerifyFailureContext) -> RecoveredVerifyResult | None:
         from .verify import handle_verify_failure
 
         handle_verify_failure(self, context)
         return None
 
-    def on_verified_payment_canceled(
-        self, context: VerifiedPaymentCanceledContext
-    ) -> None:
+    def on_verified_payment_canceled(self, context: VerifiedPaymentCanceledContext) -> None:
         from .verify import handle_verified_payment_canceled
 
         handle_verified_payment_canceled(self, context)
 
-    def before_settle(
-        self, context: SettleContext
-    ) -> AbortResult | SkipSettleResult | None:
+    def before_settle(self, context: SettleContext) -> AbortResult | SkipSettleResult | None:
         from .settle import handle_before_settle
 
         return handle_before_settle(self, context)
@@ -316,9 +302,7 @@ class BatchSettlementEvmScheme:
 
         handle_after_settle(self, context)
 
-    def on_settle_failure(
-        self, context: SettleFailureContext
-    ) -> RecoveredSettleResult | None:
+    def on_settle_failure(self, context: SettleFailureContext) -> RecoveredSettleResult | None:
         from .settle import handle_settle_failure
 
         handle_settle_failure(self, context)
@@ -331,16 +315,12 @@ class BatchSettlementEvmScheme:
 
         return handle_enrich_payment_required_response(self, context)
 
-    def enrich_settlement_payload(
-        self, context: SettleContext
-    ) -> dict[str, Any] | None:
+    def enrich_settlement_payload(self, context: SettleContext) -> dict[str, Any] | None:
         from .settle import handle_enrich_settlement_payload
 
         return handle_enrich_settlement_payload(self, context)
 
-    def enrich_settlement_response(
-        self, context: SettleResultContext
-    ) -> dict[str, Any] | None:
+    def enrich_settlement_response(self, context: SettleResultContext) -> dict[str, Any] | None:
         from .settle import handle_enrich_settlement_response
 
         return handle_enrich_settlement_response(self, context)

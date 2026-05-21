@@ -29,18 +29,14 @@ try:
         get_batch_settlement_eip712_domain,
     )
 except ImportError:
-    pytest.skip(
-        "batch_settlement requires evm extras", allow_module_level=True
-    )
+    pytest.skip("batch_settlement requires evm extras", allow_module_level=True)
 
 
 NETWORK = "eip155:8453"
 CHAIN_ID = 8453
 
 # A known private key (NOT secret — only used for deterministic test signatures).
-TEST_PRIVATE_KEY = (
-    "0xa915e4eaadfaa5e6f59574d2c8e1d2a4cd2b6c0c0b9f6a3c7d9e2b8f5a4e3c2d"
-)
+TEST_PRIVATE_KEY = "0xa915e4eaadfaa5e6f59574d2c8e1d2a4cd2b6c0c0b9f6a3c7d9e2b8f5a4e3c2d"
 
 
 def _channel_config() -> ChannelConfig:
@@ -59,12 +55,8 @@ def _signer_from_test_key() -> LocalAuthorizerSigner:
     return LocalAuthorizerSigner(TEST_PRIVATE_KEY)
 
 
-def _recover_signer_address(
-    domain: dict, types: dict, message: dict, signature: str
-) -> str:
-    signable = encode_typed_data(
-        domain_data=domain, message_types=types, message_data=message
-    )
+def _recover_signer_address(domain: dict, types: dict, message: dict, signature: str) -> str:
+    signable = encode_typed_data(domain_data=domain, message_types=types, message_data=message)
     digest = keccak(b"\x19" + signable.version + signable.header + signable.body)
     sig_bytes = bytearray(bytes.fromhex(signature.removeprefix("0x")))
     # eth_keys expects v in {0, 1}; signers emit 27/28.
@@ -112,7 +104,10 @@ class TestLocalAuthorizerSigner:
             "amount": 250,
         }
         kwargs = {
-            "domain": domain, "types": REFUND_TYPES, "primary_type": "Refund", "message": message
+            "domain": domain,
+            "types": REFUND_TYPES,
+            "primary_type": "Refund",
+            "message": message,
         }
         assert signer.sign_typed_data(**kwargs) == signer.sign_typed_data(**kwargs)
 
@@ -161,12 +156,20 @@ class TestSignClaimBatch:
         cfg = _channel_config()
         sig_a = sign_claim_batch(
             signer,
-            [VoucherClaim(channel=cfg, max_claimable_amount="1", signature="0x", total_claimed="0")],
+            [
+                VoucherClaim(
+                    channel=cfg, max_claimable_amount="1", signature="0x", total_claimed="0"
+                )
+            ],
             NETWORK,
         )
         sig_b = sign_claim_batch(
             signer,
-            [VoucherClaim(channel=cfg, max_claimable_amount="2", signature="0x", total_claimed="0")],
+            [
+                VoucherClaim(
+                    channel=cfg, max_claimable_amount="2", signature="0x", total_claimed="0"
+                )
+            ],
             NETWORK,
         )
         assert sig_a != sig_b

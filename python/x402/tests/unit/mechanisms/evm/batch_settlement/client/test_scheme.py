@@ -26,18 +26,14 @@ try:
     from x402.mechanisms.evm.signers import EthAccountSigner
     from x402.schemas import PaymentRequirements, SettleResponse
 except ImportError:
-    pytest.skip(
-        "batch_settlement requires evm extras", allow_module_level=True
-    )
+    pytest.skip("batch_settlement requires evm extras", allow_module_level=True)
 
 
 NETWORK = "eip155:84532"
 TOKEN = "0x036CbD53842c5426634e7929541eC2318f3dCF7e"
 RECEIVER = "0x3333333333333333333333333333333333333333"
 RECEIVER_AUTHORIZER = "0x4444444444444444444444444444444444444444"
-TEST_PRIVATE_KEY = (
-    "0xa915e4eaadfaa5e6f59574d2c8e1d2a4cd2b6c0c0b9f6a3c7d9e2b8f5a4e3c2d"
-)
+TEST_PRIVATE_KEY = "0xa915e4eaadfaa5e6f59574d2c8e1d2a4cd2b6c0c0b9f6a3c7d9e2b8f5a4e3c2d"
 
 
 def _signer() -> EthAccountSigner:
@@ -86,9 +82,7 @@ class TestConstruction:
     def test_payer_authorizer_must_match_voucher_signer(self):
         signer = _signer()
         # voucher_signer differs from payer_authorizer → must raise.
-        other_voucher_signer = EthAccountSigner(
-            Account.from_key("0x" + "11" * 32)
-        )
+        other_voucher_signer = EthAccountSigner(Account.from_key("0x" + "11" * 32))
         opts = BatchSettlementEvmSchemeOptions(
             payer_authorizer="0x9999999999999999999999999999999999999999",
             voucher_signer=other_voucher_signer,
@@ -186,9 +180,7 @@ class TestProcessSettleResponse:
     def test_updates_client_storage(self):
         signer = _signer()
         storage = InMemoryClientChannelStorage()
-        s = BatchSettlementEvmScheme(
-            signer, BatchSettlementEvmSchemeOptions(storage=storage)
-        )
+        s = BatchSettlementEvmScheme(signer, BatchSettlementEvmSchemeOptions(storage=storage))
         settle = SettleResponse(
             success=True,
             transaction="0xtx",
@@ -221,14 +213,10 @@ class TestBuildChannelConfig:
 class TestDepositPolicyConstruction:
     def test_policy_alone_accepted(self):
         signer = _signer()
-        s = BatchSettlementEvmScheme(
-            signer, BatchSettlementDepositPolicy(deposit_multiplier=7)
-        )
+        s = BatchSettlementEvmScheme(signer, BatchSettlementDepositPolicy(deposit_multiplier=7))
         assert s.scheme == SCHEME_BATCH_SETTLEMENT
 
     def test_invalid_policy_rejected(self):
         signer = _signer()
         with pytest.raises(ValueError):
-            BatchSettlementEvmScheme(
-                signer, BatchSettlementDepositPolicy(deposit_multiplier=2)
-            )
+            BatchSettlementEvmScheme(signer, BatchSettlementDepositPolicy(deposit_multiplier=2))

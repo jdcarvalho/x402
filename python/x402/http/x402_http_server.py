@@ -133,7 +133,14 @@ class x402HTTPResourceServer(x402HTTPServerBase):
                     else:
                         result = hook_result
                 elif phase == "create_payment_required":
-                    requirements, resource_info, error_msg, extensions, transport_context, *_rest = target
+                    (
+                        requirements,
+                        resource_info,
+                        error_msg,
+                        extensions,
+                        transport_context,
+                        *_rest,
+                    ) = target
                     req_payment_payload = _rest[0] if _rest else None
                     result = await self._server.create_payment_required_response(
                         requirements,
@@ -485,7 +492,14 @@ class x402HTTPResourceServerSync(x402HTTPServerBase):
                         )
                     result = hook_result
                 elif phase == "create_payment_required":
-                    requirements, resource_info, error_msg, extensions, transport_context, *_rest = target
+                    (
+                        requirements,
+                        resource_info,
+                        error_msg,
+                        extensions,
+                        transport_context,
+                        *_rest,
+                    ) = target
                     req_payment_payload = _rest[0] if _rest else None
                     result = self._server.create_payment_required_response(
                         requirements,

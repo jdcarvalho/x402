@@ -93,8 +93,7 @@ def handle_before_settle(scheme: BatchSettlementEvmScheme, ctx: SettleContext):
             outcome["status"] = "missing"
             return current
         if not pending_id or (
-            current.pending_request is None
-            or current.pending_request.pending_id != pending_id
+            current.pending_request is None or current.pending_request.pending_id != pending_id
         ):
             outcome["status"] = "pending_mismatch"
             return current
@@ -138,9 +137,7 @@ def handle_before_settle(scheme: BatchSettlementEvmScheme, ctx: SettleContext):
     previous: Channel = outcome["previous"]
     current_ch: Channel = outcome["current"]
     skip_extra: dict[str, Any] = {
-        "channelState": _channel_state_extra(
-            previous, current_ch.charged_cumulative_amount
-        ),
+        "channelState": _channel_state_extra(previous, current_ch.charged_cumulative_amount),
         "chargedAmount": requirements.amount,
     }
     response = SettleResponse(
@@ -181,8 +178,7 @@ def handle_enrich_settlement_payload(
     if request_context is not None:
         pending_id = request_context.pending_id
     if not pending_id or (
-        channel.pending_request is None
-        or channel.pending_request.pending_id != pending_id
+        channel.pending_request is None or channel.pending_request.pending_id != pending_id
     ):
         raise ValueError(ERR_CHANNEL_BUSY)
 
@@ -242,9 +238,7 @@ def handle_enrich_settlement_payload(
     return out
 
 
-def handle_after_settle(
-    scheme: BatchSettlementEvmScheme, ctx: SettleResultContext
-) -> None:
+def handle_after_settle(scheme: BatchSettlementEvmScheme, ctx: SettleResultContext) -> None:
     """Update channel state after facilitator settle for refund / deposit payloads."""
     from ..types import ChannelConfig
 
@@ -269,8 +263,7 @@ def handle_after_settle(
             if current is None:
                 return current
             if not pending_id or (
-                current.pending_request is None
-                or current.pending_request.pending_id != pending_id
+                current.pending_request is None or current.pending_request.pending_id != pending_id
             ):
                 return current
             if int(snapshot.balance) <= int(current.charged_cumulative_amount):
@@ -310,21 +303,16 @@ def handle_after_settle(
             if current is None:
                 return current
             if not pending_id or (
-                current.pending_request is None
-                or current.pending_request.pending_id != pending_id
+                current.pending_request is None or current.pending_request.pending_id != pending_id
             ):
                 return current
-            charged_actual = str(
-                int(current.charged_cumulative_amount) + int(requirements.amount)
-            )
+            charged_actual = str(int(current.charged_cumulative_amount) + int(requirements.amount))
             next_ch = current.copy()
             next_ch.channel_config = channel_config
             next_ch.charged_cumulative_amount = charged_actual
             next_ch.signed_max_claimable = signed_max_claimable
             next_ch.signature = signature
-            next_ch.balance = read_extra_string(
-                channel_state, "balance", current.balance
-            )
+            next_ch.balance = read_extra_string(channel_state, "balance", current.balance)
             next_ch.total_claimed = read_extra_string(
                 channel_state, "totalClaimed", current.total_claimed
             )
@@ -341,17 +329,13 @@ def handle_after_settle(
 
         update_result = storage.update_channel(channel_id, update_deposit)
         if update_result.status == "updated" and update_result.channel is not None:
-            scheme.remember_channel_snapshot(
-                payment_payload, update_result.channel
-            )
+            scheme.remember_channel_snapshot(payment_payload, update_result.channel)
             return
         scheme.take_request_context(payment_payload)
         raise ValueError(ERR_CHANNEL_BUSY)
 
 
-def handle_settle_failure(
-    scheme: BatchSettlementEvmScheme, ctx: SettleFailureContext
-) -> None:
+def handle_settle_failure(scheme: BatchSettlementEvmScheme, ctx: SettleFailureContext) -> None:
     """Clear this request's reservation after settlement throws."""
     scheme.clear_pending_request(ctx.payment_payload)
 

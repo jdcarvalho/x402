@@ -28,9 +28,7 @@ try:
     from x402.schemas import PaymentPayload, PaymentRequirements, VerifyResponse
     from x402.schemas.hooks import AbortResult, VerifyContext, VerifyResultContext
 except ImportError:
-    pytest.skip(
-        "batch_settlement requires evm extras", allow_module_level=True
-    )
+    pytest.skip("batch_settlement requires evm extras", allow_module_level=True)
 
 
 NETWORK = "eip155:8453"
@@ -151,11 +149,13 @@ class TestHandleBeforeVerify:
     def test_busy_channel_aborts(self):
         scheme = _scheme()
         import time
+
         _seed_channel(
             scheme,
             charged_cumulative_amount="0",
             last_request_timestamp=int(time.time() * 1000),
         )
+
         def _add_pending(current):
             next_ch = current.copy()
             next_ch.pending_request = PendingRequest(
@@ -164,6 +164,7 @@ class TestHandleBeforeVerify:
                 expires_at=int(time.time() * 1000) + 600_000,
             )
             return next_ch
+
         scheme.get_storage().update_channel(CHANNEL_ID, _add_pending)
         ctx = VerifyContext(
             payment_payload=_voucher_payload(max_claimable="100"),

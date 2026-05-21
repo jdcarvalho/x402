@@ -68,9 +68,7 @@ def _infer_missing_local_charged_amount(
     return str(signed - amount)
 
 
-def _build_provisional_channel(
-    raw: dict, charged_cumulative_amount: str
-) -> Channel:
+def _build_provisional_channel(raw: dict, charged_cumulative_amount: str) -> Channel:
     from ..types import ChannelConfig
 
     voucher = raw["voucher"]
@@ -166,9 +164,7 @@ def _verify_voucher_locally(
     )
 
 
-def handle_before_verify(
-    scheme: BatchSettlementEvmScheme, ctx: VerifyContext
-):
+def handle_before_verify(scheme: BatchSettlementEvmScheme, ctx: VerifyContext):
     """Reserve the channel for an in-flight verify, or abort on mismatch / busy."""
     from .....schemas.hooks import AbortResult
 
@@ -215,17 +211,17 @@ def handle_before_verify(
                 outcome["channel"] = current
             else:
                 outcome["status"] = "mismatch"
-                outcome["channel"] = _build_provisional_channel(
-                    raw, charged_cumulative_amount
-                )
+                outcome["channel"] = _build_provisional_channel(raw, charged_cumulative_amount)
             return current
 
         outcome["status"] = "reserved"
         outcome["channel_snapshot"] = current
 
-        next_ch = (current.copy() if current else _build_provisional_channel(
-            raw, charged_cumulative_amount
-        ))
+        next_ch = (
+            current.copy()
+            if current
+            else _build_provisional_channel(raw, charged_cumulative_amount)
+        )
         next_ch.pending_request = PendingRequest(
             pending_id=pending_id,
             signed_max_claimable=str(voucher["maxClaimableAmount"]),
@@ -343,9 +339,7 @@ def handle_after_verify(
     return None
 
 
-def handle_verify_failure(
-    scheme: BatchSettlementEvmScheme, ctx: VerifyFailureContext
-) -> None:
+def handle_verify_failure(scheme: BatchSettlementEvmScheme, ctx: VerifyFailureContext) -> None:
     """Clear this request's pending reservation after verify throws."""
     scheme.clear_pending_request(ctx.payment_payload)
 
@@ -373,9 +367,7 @@ def handle_enrich_payment_required_response(
         return None
 
     raw = payment_payload.payload
-    if not (
-        is_voucher_payload(raw) or is_deposit_payload(raw) or is_refund_payload(raw)
-    ):
+    if not (is_voucher_payload(raw) or is_deposit_payload(raw) or is_refund_payload(raw)):
         return None
 
     channel_id = raw["voucher"]["channelId"]
@@ -387,8 +379,11 @@ def handle_enrich_payment_required_response(
 
     accept_network = payment_payload.accepted.network
     req = next(
-        (r for r in ctx.requirements
-         if r.scheme == SCHEME_BATCH_SETTLEMENT and r.network == accept_network),
+        (
+            r
+            for r in ctx.requirements
+            if r.scheme == SCHEME_BATCH_SETTLEMENT and r.network == accept_network
+        ),
         None,
     )
     if req is None:

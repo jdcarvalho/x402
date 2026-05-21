@@ -14,9 +14,7 @@ try:
     from x402.mechanisms.evm.batch_settlement.server.storage import Channel
     from x402.mechanisms.evm.batch_settlement.types import ChannelConfig
 except ImportError:
-    pytest.skip(
-        "batch_settlement requires evm extras", allow_module_level=True
-    )
+    pytest.skip("batch_settlement requires evm extras", allow_module_level=True)
 
 
 def _sample_channel(channel_id: str = "0xch", balance: str = "100") -> Channel:

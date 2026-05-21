@@ -124,9 +124,7 @@ class ChannelStorage(Protocol):
 
     def list(self) -> list[Channel]: ...
 
-    def update_channel(
-        self, channel_id: str, update: ChannelUpdate
-    ) -> ChannelUpdateResult: ...
+    def update_channel(self, channel_id: str, update: ChannelUpdate) -> ChannelUpdateResult: ...
 
 
 class InMemoryChannelStorage:
@@ -147,9 +145,7 @@ class InMemoryChannelStorage:
         with self._global_lock:
             return [c.copy() for c in self._channels.values()]
 
-    def update_channel(
-        self, channel_id: str, update: ChannelUpdate
-    ) -> ChannelUpdateResult:
+    def update_channel(self, channel_id: str, update: ChannelUpdate) -> ChannelUpdateResult:
         key = channel_id.lower()
         with self._global_lock:
             lock = self._channel_locks.get(key)

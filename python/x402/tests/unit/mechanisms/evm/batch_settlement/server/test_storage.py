@@ -17,9 +17,7 @@ try:
     )
     from x402.mechanisms.evm.batch_settlement.types import ChannelConfig
 except ImportError:
-    pytest.skip(
-        "batch_settlement requires evm extras", allow_module_level=True
-    )
+    pytest.skip("batch_settlement requires evm extras", allow_module_level=True)
 
 
 def _sample_channel(channel_id: str = "0xch", charged: str = "10") -> Channel:
@@ -181,9 +179,7 @@ class TestChannelDataclass:
 
 class TestPendingRequest:
     def test_round_trip(self):
-        pr = PendingRequest(
-            pending_id="p", signed_max_claimable="1000", expires_at=999
-        )
+        pr = PendingRequest(pending_id="p", signed_max_claimable="1000", expires_at=999)
         d = pr.to_dict()
         assert d == {
             "pendingId": "p",

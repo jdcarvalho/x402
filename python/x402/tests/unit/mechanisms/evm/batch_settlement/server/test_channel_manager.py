@@ -34,9 +34,7 @@ try:
         VerifyResponse,
     )
 except ImportError:
-    pytest.skip(
-        "batch_settlement requires evm extras", allow_module_level=True
-    )
+    pytest.skip("batch_settlement requires evm extras", allow_module_level=True)
 
 
 NETWORK = "eip155:8453"
@@ -95,9 +93,7 @@ class _FakeFacilitator:
             self._responses = list(responses)
         self.calls: list[tuple[PaymentPayload, PaymentRequirements]] = []
 
-    def settle(
-        self, payload: PaymentPayload, requirements: PaymentRequirements
-    ) -> SettleResponse:
+    def settle(self, payload: PaymentPayload, requirements: PaymentRequirements) -> SettleResponse:
         self.calls.append((payload, requirements))
         if not self._responses:
             return SettleResponse(success=True, transaction="0xdefault", network=NETWORK)
@@ -202,9 +198,7 @@ class TestClaim:
     def test_claim_failure_raises(self):
         ch = _channel(_channel_config(), charged="100")
         fac = _FakeFacilitator(
-            SettleResponse(
-                success=False, error_reason="oops", transaction="", network=NETWORK
-            )
+            SettleResponse(success=False, error_reason="oops", transaction="", network=NETWORK)
         )
         cm, _, _ = _make_manager(seed_channels=[ch], facilitator=fac)
         with pytest.raises(RuntimeError, match="Claim failed"):
@@ -223,9 +217,7 @@ class TestSettle:
 
     def test_settle_failure_raises(self):
         fac = _FakeFacilitator(
-            SettleResponse(
-                success=False, error_reason="x", transaction="", network=NETWORK
-            )
+            SettleResponse(success=False, error_reason="x", transaction="", network=NETWORK)
         )
         cm, _, _ = _make_manager(facilitator=fac)
         with pytest.raises(RuntimeError, match="Settle failed"):
@@ -254,9 +246,7 @@ class TestRefund:
 
     def test_refund_executes_and_deletes_channel(self):
         ch = _channel(_channel_config(), balance="500", charged="100")
-        fac = _FakeFacilitator(
-            SettleResponse(success=True, transaction="0xref", network=NETWORK)
-        )
+        fac = _FakeFacilitator(SettleResponse(success=True, transaction="0xref", network=NETWORK))
         cm, scheme, fac = _make_manager(seed_channels=[ch], facilitator=fac)
         results = cm.refund([ch.channel_id])
         assert len(results) == 1
@@ -269,9 +259,7 @@ class TestRefund:
     def test_refund_failure_raises(self):
         ch = _channel(_channel_config(), balance="500")
         fac = _FakeFacilitator(
-            SettleResponse(
-                success=False, error_reason="bad", transaction="", network=NETWORK
-            )
+            SettleResponse(success=False, error_reason="bad", transaction="", network=NETWORK)
         )
         cm, _, _ = _make_manager(seed_channels=[ch], facilitator=fac)
         with pytest.raises(RuntimeError, match="Refund failed"):

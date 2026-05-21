@@ -42,9 +42,7 @@ def build_eip3009_deposit_collector_data(payload: DepositPayload) -> bytes:
     parsed = parse_erc6492_signature(sig_bytes)
     inner_hex = "0x" + parsed.inner_signature.hex()
 
-    return build_erc3009_collector_data(
-        auth.valid_after, auth.valid_before, auth.salt, inner_hex
-    )
+    return build_erc3009_collector_data(auth.valid_after, auth.valid_before, auth.salt, inner_hex)
 
 
 def verify_eip3009_deposit_authorization(
@@ -70,9 +68,7 @@ def verify_eip3009_deposit_authorization(
     name = extra.get("name")
     version = extra.get("version")
     if not name or not version:
-        return VerifyResponse(
-            is_valid=False, invalid_reason=ERR_MISSING_EIP712_DOMAIN, payer=payer
-        )
+        return VerifyResponse(is_valid=False, invalid_reason=ERR_MISSING_EIP712_DOMAIN, payer=payer)
 
     time_invalid = erc3009_authorization_time_invalid_reason(
         int(auth.valid_after), int(auth.valid_before)

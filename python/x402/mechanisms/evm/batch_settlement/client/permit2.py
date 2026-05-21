@@ -67,9 +67,7 @@ def create_batch_settlement_permit2_deposit_payload(
     sig_bytes = signer.sign_typed_data(
         domain, BATCH_PERMIT2_WITNESS_TYPES, "PermitWitnessTransferFrom", message
     )
-    signature = (
-        "0x" + sig_bytes.hex() if not sig_bytes.hex().startswith("0x") else sig_bytes.hex()
-    )
+    signature = "0x" + sig_bytes.hex() if not sig_bytes.hex().startswith("0x") else sig_bytes.hex()
 
     voucher = sign_voucher(
         voucher_signer or signer,

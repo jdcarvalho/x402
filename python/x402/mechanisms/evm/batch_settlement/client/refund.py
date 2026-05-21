@@ -155,9 +155,7 @@ def _execute_refund(
                 raise RuntimeError(non_recoverable)
 
         settle_header = response.header("PAYMENT-RESPONSE")
-        settle_response = (
-            decode_payment_response_header(settle_header) if settle_header else None
-        )
+        settle_response = decode_payment_response_header(settle_header) if settle_header else None
 
         if settle_response is not None:
             channel_id_key = _channel_key(deps, probe.requirements)
@@ -177,9 +175,7 @@ def _execute_refund(
             process_corrective_payment_required(deps, payment_required)
             if attempt < max_attempts:
                 continue
-            raise RuntimeError(
-                f"Refund failed: server returned 402 after {attempt} attempt(s)"
-            )
+            raise RuntimeError(f"Refund failed: server returned 402 after {attempt} attempt(s)")
 
         raise RuntimeError(
             f"Refund response missing PAYMENT-RESPONSE header (status {response.status})"
@@ -276,9 +272,7 @@ def _normalize_refund_amount(amount: str | None) -> str | None:
     if amount is None:
         return None
     if not _AMOUNT_RE.match(amount) or amount == "0":
-        raise ValueError(
-            f'Invalid refund amount "{amount}": must be a positive integer string'
-        )
+        raise ValueError(f'Invalid refund amount "{amount}": must be a positive integer string')
     return amount
 
 

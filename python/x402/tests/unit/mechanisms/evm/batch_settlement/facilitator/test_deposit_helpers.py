@@ -40,9 +40,7 @@ try:
         VoucherFields,
     )
 except ImportError:
-    pytest.skip(
-        "batch_settlement requires evm extras", allow_module_level=True
-    )
+    pytest.skip("batch_settlement requires evm extras", allow_module_level=True)
 
 
 CHANNEL_ID = "0x" + "ab" * 32
@@ -127,9 +125,7 @@ class TestBuildEip3009DepositCollectorData:
         p = DepositPayload()
         p.channel_config = _channel_config()
         p.voucher = _voucher()
-        p.deposit = DepositFields(
-            amount="1000", authorization=DepositAuthorization()
-        )
+        p.deposit = DepositFields(amount="1000", authorization=DepositAuthorization())
         with pytest.raises(ValueError, match=ERR_ERC3009_AUTHORIZATION_REQUIRED):
             build_eip3009_deposit_collector_data(p)
 
@@ -158,8 +154,6 @@ class TestBuildPermit2DepositCollectorData:
         p = DepositPayload()
         p.channel_config = _channel_config()
         p.voucher = _voucher()
-        p.deposit = DepositFields(
-            amount="1000", authorization=DepositAuthorization()
-        )
+        p.deposit = DepositFields(amount="1000", authorization=DepositAuthorization())
         with pytest.raises(ValueError, match=ERR_PERMIT2_AUTHORIZATION_REQUIRED):
             build_permit2_deposit_collector_data(p)

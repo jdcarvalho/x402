@@ -22,9 +22,7 @@ def read_channel_state_extra(extra: Mapping[str, Any] | None) -> dict[str, Any] 
     return None
 
 
-def read_extra_string(
-    extra: Mapping[str, Any] | None, key: str, fallback: str
-) -> str:
+def read_extra_string(extra: Mapping[str, Any] | None, key: str, fallback: str) -> str:
     if not extra:
         return fallback
     value = extra.get(key)
@@ -35,9 +33,7 @@ def read_extra_string(
     return fallback
 
 
-def read_extra_number(
-    extra: Mapping[str, Any] | None, key: str, fallback: int
-) -> int:
+def read_extra_number(extra: Mapping[str, Any] | None, key: str, fallback: int) -> int:
     if not extra:
         return fallback
     value = extra.get(key)

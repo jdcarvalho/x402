@@ -64,9 +64,7 @@ def verify_voucher(
         )
 
     if state.balance == 0:
-        return VerifyResponse(
-            is_valid=False, invalid_reason=ERR_CHANNEL_NOT_FOUND, payer=payer
-        )
+        return VerifyResponse(is_valid=False, invalid_reason=ERR_CHANNEL_NOT_FOUND, payer=payer)
 
     max_claimable_amount = int(voucher["maxClaimableAmount"])
     if max_claimable_amount > state.balance:

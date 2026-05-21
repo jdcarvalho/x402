@@ -97,9 +97,7 @@ def build_permit2_deposit_collector_data(
     parsed = parse_erc6492_signature(sig_bytes)
     inner_hex = "0x" + parsed.inner_signature.hex()
 
-    return build_permit2_collector_data(
-        auth.nonce, auth.deadline, inner_hex, eip2612_permit_data
-    )
+    return build_permit2_collector_data(auth.nonce, auth.deadline, inner_hex, eip2612_permit_data)
 
 
 def verify_permit2_deposit_authorization(
@@ -115,9 +113,7 @@ def verify_permit2_deposit_authorization(
     if typed is not None:
         return typed
 
-    branch = resolve_permit2_deposit_branch(
-        signer, payment, payload, requirements, context
-    )
+    branch = resolve_permit2_deposit_branch(signer, payment, payload, requirements, context)
     if isinstance(branch, VerifyResponse):
         return branch
 
@@ -142,9 +138,7 @@ def resolve_permit2_deposit_branch(
             eip2612_info, payer, token_address, payload.deposit.amount
         )
         if invalid_reason:
-            return VerifyResponse(
-                is_valid=False, invalid_reason=invalid_reason, payer=payer
-            )
+            return VerifyResponse(is_valid=False, invalid_reason=invalid_reason, payer=payer)
 
         v, r, s = _split_eip2612_signature(eip2612_info.signature)
         eip2612_data = build_eip2612_permit_data(
@@ -171,9 +165,7 @@ def resolve_permit2_deposit_branch(
                 payer=payer,
             )
 
-        reason, message = validate_erc20_approval_for_payment(
-            erc20_info, payer, token_address
-        )
+        reason, message = validate_erc20_approval_for_payment(erc20_info, payer, token_address)
         if reason:
             return VerifyResponse(
                 is_valid=False,
@@ -243,9 +235,7 @@ def _verify_permit2_typed_data(
         )
 
     if to_checksum_address(auth.permitted.token) != to_checksum_address(requirements.asset):
-        return VerifyResponse(
-            is_valid=False, invalid_reason=ERR_TOKEN_MISMATCH, payer=payer
-        )
+        return VerifyResponse(is_valid=False, invalid_reason=ERR_TOKEN_MISMATCH, payer=payer)
 
     if int(auth.permitted.amount) != int(payload.deposit.amount):
         return VerifyResponse(
@@ -253,9 +243,7 @@ def _verify_permit2_typed_data(
         )
 
     if auth.witness.channel_id.lower() != payload.voucher.channel_id.lower():
-        return VerifyResponse(
-            is_valid=False, invalid_reason=ERR_CHANNEL_ID_MISMATCH, payer=payer
-        )
+        return VerifyResponse(is_valid=False, invalid_reason=ERR_CHANNEL_ID_MISMATCH, payer=payer)
 
     now = int(time.time())
     if int(auth.deadline) < now + PERMIT2_DEADLINE_BUFFER:

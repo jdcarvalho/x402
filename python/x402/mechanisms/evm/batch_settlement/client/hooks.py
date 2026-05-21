@@ -39,11 +39,7 @@ def handle_batch_settlement_payment_response(
         if ctx.payment_payload is not None and is_refund_payload(ctx.payment_payload):
             extra = ctx.settle_response.extra or {}
             channel_state = extra.get("channelState")
-            channel_id = (
-                channel_state.get("channelId")
-                if isinstance(channel_state, dict)
-                else None
-            )
+            channel_id = channel_state.get("channelId") if isinstance(channel_state, dict) else None
             if isinstance(channel_id, str) and channel_id:
                 update_channel_after_refund(deps.storage, channel_id.lower(), extra)
             return None

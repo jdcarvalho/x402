@@ -13,9 +13,7 @@ import pytest
 try:
     from x402.mechanisms.evm.batch_settlement import errors as err_mod
 except ImportError:
-    pytest.skip(
-        "batch_settlement requires evm extras", allow_module_level=True
-    )
+    pytest.skip("batch_settlement requires evm extras", allow_module_level=True)
 
 
 WIRE_PREFIX = "invalid_batch_settlement_evm_"

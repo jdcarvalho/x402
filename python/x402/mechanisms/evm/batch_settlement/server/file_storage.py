@@ -58,9 +58,7 @@ class FileChannelStorage:
             channels.append(Channel.from_dict(data))
         return channels
 
-    def update_channel(
-        self, channel_id: str, update: ChannelUpdate
-    ) -> ChannelUpdateResult:
+    def update_channel(self, channel_id: str, update: ChannelUpdate) -> ChannelUpdateResult:
         path = self._file_path(channel_id)
         lock_path = Path(str(path) + ".lock")
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -102,9 +100,7 @@ class _file_lock:  # noqa: N801 - module-private context manager
     def __enter__(self) -> _file_lock:
         while True:
             try:
-                self._fd = os.open(
-                    self._lock_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600
-                )
+                self._fd = os.open(self._lock_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
                 return self
             except FileExistsError:
                 time.sleep(0.01)

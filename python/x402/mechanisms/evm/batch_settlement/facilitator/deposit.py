@@ -97,22 +97,15 @@ def verify_deposit(
         return VerifyResponse(is_valid=False, invalid_reason=config_err, payer=payer)
 
     transfer_method = _resolve_deposit_transfer_method(payload, requirements)
-    if (
-        transfer_method == "permit2"
-        and payload.deposit.authorization.permit2_authorization is None
-    ):
-        return VerifyResponse(
-            is_valid=False, invalid_reason=ERR_INVALID_PAYLOAD_TYPE, payer=payer
-        )
+    if transfer_method == "permit2" and payload.deposit.authorization.permit2_authorization is None:
+        return VerifyResponse(is_valid=False, invalid_reason=ERR_INVALID_PAYLOAD_TYPE, payer=payer)
 
     if transfer_method == "permit2":
         method_err = verify_permit2_deposit_authorization(
             signer, payment, payload, requirements, chain_id, context
         )
     else:
-        method_err = verify_eip3009_deposit_authorization(
-            signer, payload, requirements, chain_id
-        )
+        method_err = verify_eip3009_deposit_authorization(signer, payload, requirements, chain_id)
     if method_err is not None:
         return method_err
 
@@ -120,9 +113,7 @@ def verify_deposit(
     if isinstance(shared, VerifyResponse):
         return shared
 
-    execution = _resolve_deposit_execution(
-        signer, payment, payload, requirements, context
-    )
+    execution = _resolve_deposit_execution(signer, payment, payload, requirements, context)
     if isinstance(execution, VerifyResponse):
         return execution
 
@@ -187,9 +178,7 @@ def settle_deposit(
         )
 
     try:
-        execution = _resolve_deposit_execution(
-            signer, payment, payload, requirements, context
-        )
+        execution = _resolve_deposit_execution(signer, payment, payload, requirements, context)
         if isinstance(execution, VerifyResponse):
             reason = execution.invalid_reason or ERR_INVALID_PAYLOAD_TYPE
             return SettleResponse(
@@ -235,9 +224,7 @@ def settle_deposit(
         optimistic = {
             "channelState": {
                 "channelId": voucher.channel_id,
-                "balance": str(
-                    int(str(verified_extra.get("balance", "0"))) + int(deposit.amount)
-                ),
+                "balance": str(int(str(verified_extra.get("balance", "0"))) + int(deposit.amount)),
                 "totalClaimed": str(verified_extra.get("totalClaimed", "0")),
                 "withdrawRequestedAt": int(verified_extra.get("withdrawRequestedAt", 0)),
                 "refundNonce": str(verified_extra.get("refundNonce", "0")),
@@ -347,9 +334,7 @@ def _verify_shared_deposit_state(
         ],
     )
     if any(not r.success for r in results):
-        return VerifyResponse(
-            is_valid=False, invalid_reason=ERR_RPC_READ_FAILED, payer=payer
-        )
+        return VerifyResponse(is_valid=False, invalid_reason=ERR_RPC_READ_FAILED, payer=payer)
 
     ch_balance, ch_total_claimed = _unpack_pair(results[0].result)
     payer_balance = int(results[1].result)
@@ -358,9 +343,7 @@ def _verify_shared_deposit_state(
     deposit_amount = int(deposit.amount)
 
     if payer_balance < deposit_amount:
-        return VerifyResponse(
-            is_valid=False, invalid_reason=ERR_INSUFFICIENT_BALANCE, payer=payer
-        )
+        return VerifyResponse(is_valid=False, invalid_reason=ERR_INSUFFICIENT_BALANCE, payer=payer)
 
     effective_balance = ch_balance + deposit_amount
     max_claimable = int(voucher.max_claimable_amount)
@@ -401,9 +384,7 @@ def _resolve_deposit_execution(
             collector_data=build_eip3009_deposit_collector_data(payload),
         )
 
-    branch = resolve_permit2_deposit_branch(
-        signer, payment, payload, requirements, context
-    )
+    branch = resolve_permit2_deposit_branch(signer, payment, payload, requirements, context)
     if isinstance(branch, VerifyResponse):
         return branch
 
@@ -433,15 +414,11 @@ def _resolve_deposit_transfer_method(
         return hinted
     assert payload.deposit is not None
     return (
-        "permit2"
-        if payload.deposit.authorization.permit2_authorization is not None
-        else "eip3009"
+        "permit2" if payload.deposit.authorization.permit2_authorization is not None else "eip3009"
     )
 
 
-def _build_deposit_write_call(
-    payload: DepositPayload, execution: _DepositExecution
-):
+def _build_deposit_write_call(payload: DepositPayload, execution: _DepositExecution):
     """Build a WriteContractCall for the erc20Approval branch's extension signer."""
     from .....extensions.erc20_approval_gas_sponsoring.types import WriteContractCall
 

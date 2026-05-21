@@ -61,9 +61,7 @@ def execute_settle(
         )
 
     try:
-        signer.read_contract(
-            contract_addr, BATCH_SETTLEMENT_ABI, "settle", receiver, token
-        )
+        signer.read_contract(contract_addr, BATCH_SETTLEMENT_ABI, "settle", receiver, token)
     except Exception as e:
         return SettleResponse(
             success=False,
@@ -74,9 +72,7 @@ def execute_settle(
         )
 
     try:
-        tx = signer.write_contract(
-            contract_addr, BATCH_SETTLEMENT_ABI, "settle", receiver, token
-        )
+        tx = signer.write_contract(contract_addr, BATCH_SETTLEMENT_ABI, "settle", receiver, token)
         receipt = signer.wait_for_transaction_receipt(tx)
         if receipt.status != TX_STATUS_SUCCESS:
             return SettleResponse(

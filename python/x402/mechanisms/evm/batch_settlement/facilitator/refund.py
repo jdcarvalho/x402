@@ -73,9 +73,7 @@ def _build_refund_extra(
     pre_balance = pre_state.balance if pre_state else 0
     pre_refund_nonce = pre_state.refund_nonce if pre_state else 0
 
-    last_claim_total = (
-        int(payload.claims[-1].total_claimed) if payload.claims else pre_total
-    )
+    last_claim_total = int(payload.claims[-1].total_claimed) if payload.claims else pre_total
     post_claim_total = max(last_claim_total, pre_total)
 
     available = pre_balance - post_claim_total
@@ -98,11 +96,7 @@ def _build_refund_extra_from_post_state(
     pre_state: ChannelState,
     post_state: ChannelState,
 ) -> tuple[str, dict]:
-    actual = (
-        pre_state.balance - post_state.balance
-        if pre_state.balance > post_state.balance
-        else 0
-    )
+    actual = pre_state.balance - post_state.balance if pre_state.balance > post_state.balance else 0
     return str(actual), {
         "channelState": {
             "channelId": channel_id,
@@ -263,9 +257,7 @@ def execute_refund_with_signature(
             else None
         )
         if pre_state and post_state:
-            amount, extra = _build_refund_extra_from_post_state(
-                channel_id, pre_state, post_state
-            )
+            amount, extra = _build_refund_extra_from_post_state(channel_id, pre_state, post_state)
         else:
             amount, extra = _build_refund_extra(payload, channel_id, pre_state)
 

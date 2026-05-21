@@ -19,16 +19,12 @@ try:
     )
     from x402.mechanisms.evm.signers import EthAccountSigner
 except ImportError:
-    pytest.skip(
-        "batch_settlement requires evm extras", allow_module_level=True
-    )
+    pytest.skip("batch_settlement requires evm extras", allow_module_level=True)
 
 
 NETWORK = "eip155:8453"
 CHAIN_ID = 8453
-TEST_PRIVATE_KEY = (
-    "0xb1c0e5f8d2a3b4d5e6c7a8b9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9"
-)
+TEST_PRIVATE_KEY = "0xb1c0e5f8d2a3b4d5e6c7a8b9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9"
 
 
 def _signer() -> EthAccountSigner:

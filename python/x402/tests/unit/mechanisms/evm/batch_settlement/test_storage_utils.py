@@ -16,9 +16,7 @@ try:
         write_json_atomic,
     )
 except ImportError:
-    pytest.skip(
-        "batch_settlement requires evm extras", allow_module_level=True
-    )
+    pytest.skip("batch_settlement requires evm extras", allow_module_level=True)
 
 
 class TestReadJsonFile:

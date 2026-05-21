@@ -17,15 +17,11 @@ try:
         get_batch_settlement_eip712_domain,
     )
 except ImportError:
-    pytest.skip(
-        "batch_settlement requires evm extras", allow_module_level=True
-    )
+    pytest.skip("batch_settlement requires evm extras", allow_module_level=True)
 
 
 CHAIN_ID = 8453
-TEST_PRIVATE_KEY = (
-    "0xa915e4eaadfaa5e6f59574d2c8e1d2a4cd2b6c0c0b9f6a3c7d9e2b8f5a4e3c2d"
-)
+TEST_PRIVATE_KEY = "0xa915e4eaadfaa5e6f59574d2c8e1d2a4cd2b6c0c0b9f6a3c7d9e2b8f5a4e3c2d"
 
 
 def _sign_voucher(channel_id: str, amount: int) -> tuple[str, str]:

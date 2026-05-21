@@ -38,9 +38,7 @@ try:
         is_voucher_payload,
     )
 except ImportError:
-    pytest.skip(
-        "batch_settlement requires evm extras", allow_module_level=True
-    )
+    pytest.skip("batch_settlement requires evm extras", allow_module_level=True)
 
 
 def _channel_config() -> ChannelConfig:
@@ -273,9 +271,7 @@ class TestPayloadDiscriminators:
 
 class TestChannelStateExtra:
     def test_round_trip_minimal(self):
-        e = ChannelStateExtra(
-            channel_id="0xabc", balance="1000", total_claimed="0"
-        )
+        e = ChannelStateExtra(channel_id="0xabc", balance="1000", total_claimed="0")
         d = e.to_dict()
         assert d == {
             "channelId": "0xabc",
@@ -315,12 +311,8 @@ class TestPaymentRequirementsExtra:
             name="USDC",
             version="2",
             asset_transfer_method="permit2",
-            channel_state=ChannelStateExtra(
-                channel_id="0xabc", balance="1000", total_claimed="0"
-            ),
-            voucher_state=VoucherStateExtra(
-                signed_max_claimable="500", signature="0xdead"
-            ),
+            channel_state=ChannelStateExtra(channel_id="0xabc", balance="1000", total_claimed="0"),
+            voucher_state=VoucherStateExtra(signed_max_claimable="500", signature="0xdead"),
         )
         d = r.to_dict()
         assert d["assetTransferMethod"] == "permit2"
@@ -336,9 +328,7 @@ class TestPaymentResponseExtra:
             channel_state=ChannelStateExtra(
                 channel_id="0xabc", balance="1000", total_claimed="100"
             ),
-            voucher_state=VoucherStateExtra(
-                signed_max_claimable="100", signature="0xdead"
-            ),
+            voucher_state=VoucherStateExtra(signed_max_claimable="100", signature="0xdead"),
         )
         d = r.to_dict()
         assert d["chargedAmount"] == "100"

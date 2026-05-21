@@ -21,9 +21,7 @@ try:
     from x402.mechanisms.evm.batch_settlement.types import ChannelConfig
     from x402.schemas import AssetAmount, PaymentPayload, PaymentRequirements, SupportedKind
 except ImportError:
-    pytest.skip(
-        "batch_settlement requires evm extras", allow_module_level=True
-    )
+    pytest.skip("batch_settlement requires evm extras", allow_module_level=True)
 
 
 RECEIVER = "0x3333333333333333333333333333333333333333"

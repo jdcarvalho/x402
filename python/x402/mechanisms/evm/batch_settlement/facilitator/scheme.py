@@ -76,9 +76,7 @@ class BatchSettlementEvmFacilitator:
 
         if is_deposit_payload(raw):
             deposit = DepositPayload.from_dict(raw)
-            return verify_deposit(
-                self._signer, payload, deposit, requirements, context
-            )
+            return verify_deposit(self._signer, payload, deposit, requirements, context)
 
         if is_voucher_payload(raw):
             channel_config = ChannelConfig.from_dict(raw["channelConfig"])
@@ -101,9 +99,7 @@ class BatchSettlementEvmFacilitator:
 
         if is_deposit_payload(raw):
             deposit = DepositPayload.from_dict(raw)
-            return settle_deposit(
-                self._signer, payload, deposit, requirements, context
-            )
+            return settle_deposit(self._signer, payload, deposit, requirements, context)
 
         if is_claim_payload(raw):
             claim = ClaimPayload.from_dict(raw)

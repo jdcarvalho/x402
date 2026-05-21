@@ -208,9 +208,7 @@ class TestBatchSettlementEvmIntegration:
 
         WARNING: This spends real Base Sepolia USDC.
         """
-        accepts = [
-            _build_requirements(self.facilitator_address, "1000", self.receiver_authorizer)
-        ]
+        accepts = [_build_requirements(self.facilitator_address, "1000", self.receiver_authorizer)]
         resource = ResourceInfo(
             url="https://example.com/api",
             description="Batched test resource",
@@ -275,7 +273,4 @@ class TestBatchSettlementEvmIntegration:
         assert match is not None
         assert match.x402_version == 2
         assert match.extra is not None
-        assert (
-            match.extra.get("receiverAuthorizer", "").lower()
-            == self.receiver_authorizer.lower()
-        )
+        assert match.extra.get("receiverAuthorizer", "").lower() == self.receiver_authorizer.lower()

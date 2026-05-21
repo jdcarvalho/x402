@@ -15,9 +15,7 @@ try:
     from x402.mechanisms.evm.batch_settlement import constants as C  # noqa: N812
     from x402.mechanisms.evm.batch_settlement import errors as E  # noqa: N812
 except ImportError:
-    pytest.skip(
-        "batch_settlement requires evm extras", allow_module_level=True
-    )
+    pytest.skip("batch_settlement requires evm extras", allow_module_level=True)
 
 
 class TestSchemeIdentifier:

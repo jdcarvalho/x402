@@ -53,13 +53,8 @@ def build_channel_config(
     """Build the immutable `ChannelConfig` from deps + payment requirements."""
     extra = requirements.extra or {}
     receiver_authorizer = extra.get("receiverAuthorizer")
-    if (
-        not receiver_authorizer
-        or to_checksum_address(receiver_authorizer) == ZERO_ADDRESS
-    ):
-        raise ValueError(
-            "Payment requirements must include a non-zero extra.receiverAuthorizer"
-        )
+    if not receiver_authorizer or to_checksum_address(receiver_authorizer) == ZERO_ADDRESS:
+        raise ValueError("Payment requirements must include a non-zero extra.receiverAuthorizer")
 
     if deps.payer_authorizer is not None:
         payer_authorizer = deps.payer_authorizer

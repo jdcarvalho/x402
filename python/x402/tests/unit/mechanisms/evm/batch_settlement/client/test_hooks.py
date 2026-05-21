@@ -22,14 +22,10 @@ try:
     from x402.mechanisms.evm.signers import EthAccountSigner
     from x402.schemas import PaymentRequired, PaymentRequirements, SettleResponse
 except ImportError:
-    pytest.skip(
-        "batch_settlement requires evm extras", allow_module_level=True
-    )
+    pytest.skip("batch_settlement requires evm extras", allow_module_level=True)
 
 
-TEST_PRIVATE_KEY = (
-    "0xa915e4eaadfaa5e6f59574d2c8e1d2a4cd2b6c0c0b9f6a3c7d9e2b8f5a4e3c2d"
-)
+TEST_PRIVATE_KEY = "0xa915e4eaadfaa5e6f59574d2c8e1d2a4cd2b6c0c0b9f6a3c7d9e2b8f5a4e3c2d"
 
 
 def _deps() -> BatchSettlementClientDeps:
@@ -53,17 +49,13 @@ def _settle(channel_id: str | None = "0xabc", balance: str = "100") -> SettleRes
         if channel_id is not None
         else None
     )
-    return SettleResponse(
-        success=True, transaction="0xtx", network="eip155:8453", extra=extra
-    )
+    return SettleResponse(success=True, transaction="0xtx", network="eip155:8453", extra=extra)
 
 
 class TestHandlePaymentResponse:
     def test_no_inputs_is_noop(self):
         deps = _deps()
-        result = handle_batch_settlement_payment_response(
-            deps, PaymentResponseContext()
-        )
+        result = handle_batch_settlement_payment_response(deps, PaymentResponseContext())
         assert result is None
 
     def test_voucher_settle_response_updates_storage(self):
