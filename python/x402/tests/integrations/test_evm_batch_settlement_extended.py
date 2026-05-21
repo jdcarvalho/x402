@@ -362,13 +362,23 @@ def _start_flask_resource_server(
 
 
 def _make_paid_request(pipe: _Pipeline, url: str) -> requests.Response:
-    """Make a single x402-authenticated GET against url and assert 200."""
-    session = wrapRequestsWithPayment(requests.Session(), pipe.x402_client)
-    response = session.get(url, timeout=90)
-    assert response.status_code == 200, (
-        f"expected 200, got {response.status_code}: {response.text}"
+    """Make a single x402-authenticated GET against url and assert 200.
+
+    Retries up to 3 times with backoff to handle transient RPC failures that
+    occasionally cause the testnet facilitator to reject a valid deposit.
+    """
+    last: requests.Response | None = None
+    for attempt in range(3):
+        session = wrapRequestsWithPayment(requests.Session(), pipe.x402_client)
+        last = session.get(url, timeout=90)
+        if last.status_code == 200:
+            return last
+        if attempt < 2:
+            time.sleep(3)
+    assert last is not None and last.status_code == 200, (
+        f"expected 200, got {last.status_code}: {last.text}"
     )
-    return response
+    return last  # unreachable — assertion above always raises
 
 
 # =============================================================================
