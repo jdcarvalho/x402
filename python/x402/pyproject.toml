@@ -212,4 +212,3 @@ name = "Removals"
 name = "Misc"
 
 [tool.uv]
-exclude-newer = "3 days"

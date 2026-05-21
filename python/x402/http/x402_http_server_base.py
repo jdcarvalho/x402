@@ -511,14 +511,18 @@ class x402HTTPServerBase:
             )
 
         except Exception as e:
+            from ..schemas.errors import PaymentAbortedError
+
+            error_msg = e.reason if isinstance(e, PaymentAbortedError) else str(e)
             error_required = yield (
                 "create_payment_required",
                 (
                     requirements,
                     resource_info,
-                    str(e),
+                    error_msg,
                     extensions,
                     transport_context,
+                    payment_payload,
                 ),
                 None,
             )
