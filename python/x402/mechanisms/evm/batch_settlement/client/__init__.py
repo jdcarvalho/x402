@@ -1,7 +1,4 @@
-"""Client-side public API for the batch-settlement EVM scheme.
-
-Mirrors typescript/packages/mechanisms/evm/src/batch-settlement/client/index.ts.
-"""
+"""Client-side public API for the batch-settlement EVM scheme."""
 
 from ..utils import compute_channel_id
 from .channel import (

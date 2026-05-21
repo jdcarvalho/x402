@@ -1,7 +1,4 @@
-"""Facilitator-side cooperative refund execution.
-
-Mirrors `typescript/packages/mechanisms/evm/src/batch-settlement/facilitator/refund.ts`.
-"""
+"""Facilitator-side cooperative refund execution."""
 
 from __future__ import annotations
 

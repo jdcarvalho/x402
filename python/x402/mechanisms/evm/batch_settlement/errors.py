@@ -1,8 +1,6 @@
 """Error code constants for the batch-settlement EVM scheme.
 
-Mirrors typescript/packages/mechanisms/evm/src/batch-settlement/errors.ts and
-go/mechanisms/evm/batch-settlement/errors.go. Strings are part of the wire
-contract and must match exactly across SDKs.
+Strings are part of the wire contract and must match exactly across SDKs.
 """
 
 ERR_INVALID_SCHEME = "invalid_batch_settlement_evm_scheme"

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import threading
-from collections.abc import Awaitable, Callable
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
@@ -102,8 +102,6 @@ class BatchSettlementEvmScheme:
         self._request_lock = threading.Lock()
         self._request_contexts: dict[int, BatchSettlementRequestContext] = {}
 
-    # ------------------------------------------------------------------ accessors
-
     def get_storage(self) -> ChannelStorage:
         return self._storage
 
@@ -122,8 +120,6 @@ class BatchSettlementEvmScheme:
     def register_money_parser(self, parser: MoneyParser) -> BatchSettlementEvmScheme:
         self._money_parsers.append(parser)
         return self
-
-    # ------------------------------------------------------------------ request context
 
     def merge_request_context(
         self,
@@ -192,8 +188,6 @@ class BatchSettlementEvmScheme:
 
         self._storage.update_channel(ctx.channel_id, update)
 
-    # ------------------------------------------------------------------ SchemeNetworkServer
-
     def parse_price(self, price: Price, network: Network) -> AssetAmount:
         if isinstance(price, dict) and "amount" in price:
             if not price.get("asset"):
@@ -219,9 +213,8 @@ class BatchSettlementEvmScheme:
         self,
         requirements: PaymentRequirements,
         supported_kind: SupportedKind,
-        extension_keys: list[str],
+        _extension_keys: list[str],
     ) -> PaymentRequirements:
-        del extension_keys
 
         config = get_network_config(str(requirements.network))
         if not requirements.asset:
@@ -283,8 +276,6 @@ class BatchSettlementEvmScheme:
         if atm:
             extra["assetTransferMethod"] = atm
         return AssetAmount(amount=str(token_amount), asset=asset["address"], extra=extra)
-
-    # ------------------------------------------------------------------ lifecycle hooks
 
     def before_verify(
         self, context: VerifyContext
@@ -354,8 +345,6 @@ class BatchSettlementEvmScheme:
 
         return handle_enrich_settlement_response(self, context)
 
-    # ------------------------------------------------------------------ misc
-
     def create_channel_manager(
         self,
         facilitator: Any,
@@ -385,11 +374,6 @@ class BatchSettlementEvmScheme:
                 network=str(network),
             )
         )
-
-
-# Unused at runtime — exported for type completeness so awaitable return types
-# don't drop from public typing surface.
-_AwaitableMarker = Awaitable[Any]
 
 
 __all__ = [

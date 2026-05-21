@@ -23,7 +23,7 @@ from ..types import (
     DepositPayload,
     Erc3009Authorization,
 )
-from ..utils import _coerce_bytes32, compute_channel_id
+from ..utils import coerce_bytes32, compute_channel_id
 from .voucher import sign_voucher
 
 
@@ -66,7 +66,7 @@ def create_batch_settlement_eip3009_deposit_payload(
         "value": int(deposit_amount),
         "validAfter": valid_after,
         "validBefore": valid_before,
-        "nonce": _coerce_bytes32(erc3009_nonce),
+        "nonce": coerce_bytes32(erc3009_nonce),
     }
     sig_bytes = signer.sign_typed_data(
         domain, RECEIVE_AUTHORIZATION_TYPES, "ReceiveWithAuthorization", message

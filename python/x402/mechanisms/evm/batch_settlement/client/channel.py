@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, cast
 
 try:
     from eth_utils import to_checksum_address
@@ -154,8 +154,7 @@ def read_channel_balance_and_total_claimed(
         raise RuntimeError(
             "read_channel_balance_and_total_claimed requires a signer with read_contract"
         )
-    read_contract = getattr(signer, "read_contract")  # noqa: B009
-    result = read_contract(
+    result = cast(ClientEvmSignerWithReadContract, signer).read_contract(
         BATCH_SETTLEMENT_ADDRESS,
         BATCH_SETTLEMENT_ABI,
         "channels",

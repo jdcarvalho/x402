@@ -137,8 +137,7 @@ def _execute_refund(
             payment_required = _get_refund_payment_required(response)
             recovered = process_corrective_payment_required(deps, payment_required)
             if recovered:
-                channel_id_key = _channel_key(deps, probe.requirements)
-                _ = channel_id_key  # silence unused — kept for parity with TS hook flow
+                pass
 
         if settle_response is not None:
             channel_id_key = _channel_key(deps, probe.requirements)

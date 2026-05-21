@@ -1,6 +1,5 @@
 """Server-side batch-settlement scheme.
 
-Mirrors `typescript/packages/mechanisms/evm/src/batch-settlement/server`.
 Re-exports the scheme, storage backends, and channel manager.
 """
 

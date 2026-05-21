@@ -1,7 +1,4 @@
-"""Facilitator-side voucher verification.
-
-Mirrors `typescript/packages/mechanisms/evm/src/batch-settlement/facilitator/voucher.ts`.
-"""
+"""Facilitator-side voucher verification."""
 
 from __future__ import annotations
 

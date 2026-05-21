@@ -17,7 +17,7 @@ from ..constants import SCHEME_BATCH_SETTLEMENT, VOUCHER_TYPES
 from ..errors import ERR_CUMULATIVE_AMOUNT_BELOW_CLAIMED, ERR_CUMULATIVE_AMOUNT_MISMATCH
 from ..types import ChannelStateExtra, VoucherStateExtra
 from ..utils import (
-    _coerce_bytes32,
+    coerce_bytes32,
     compute_channel_id,
     get_batch_settlement_eip712_domain,
 )
@@ -103,7 +103,7 @@ def recover_from_signature(
     chain_id = get_evm_chain_id(str(accept.network))
     domain = get_batch_settlement_eip712_domain(chain_id)
     message = {
-        "channelId": _coerce_bytes32(channel_id),
+        "channelId": coerce_bytes32(channel_id),
         "maxClaimableAmount": signed,
     }
 

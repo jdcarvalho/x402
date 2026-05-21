@@ -1,25 +1,21 @@
-"""Server-side verify lifecycle hooks for the batch-settlement EVM scheme.
-
-Mirrors `typescript/packages/mechanisms/evm/src/batch-settlement/server/verify.ts`.
-
-The local-verify optimization path (TS `verifyVoucherLocally`) requires
-`validate_channel_config` from the not-yet-implemented facilitator subpackage
-and is intentionally omitted for the first iteration. Verification always
-goes through the facilitator; correctness is unaffected — only the optional
-fast path is.
-"""
+"""Server-side verify lifecycle hooks for the batch-settlement EVM scheme."""
 
 from __future__ import annotations
 
 import time
 from typing import TYPE_CHECKING
 
-from ...utils import create_nonce
+from .....schemas import VerifyResponse
+from ...utils import create_nonce, get_evm_chain_id
 from ..constants import SCHEME_BATCH_SETTLEMENT
 from ..errors import (
     ERR_CHANNEL_BUSY,
+    ERR_CUMULATIVE_AMOUNT_BELOW_CLAIMED,
     ERR_CUMULATIVE_AMOUNT_MISMATCH,
+    ERR_CUMULATIVE_EXCEEDS_BALANCE,
+    ERR_INVALID_VOUCHER_SIGNATURE,
 )
+from ..facilitator.utils import validate_channel_config, verify_batch_settlement_voucher_typed_data
 from ..types import (
     is_deposit_payload,
     is_refund_payload,
@@ -89,6 +85,84 @@ def _build_provisional_channel(
         withdraw_requested_at=0,
         refund_nonce=0,
         last_request_timestamp=_now_ms(),
+    )
+
+
+def _is_onchain_state_fresh(channel: Channel, ttl_ms: int, now_ms: int) -> bool:
+    return channel.onchain_synced_at is not None and now_ms - channel.onchain_synced_at <= ttl_ms
+
+
+def _verify_local_voucher_signature(raw: dict, network: str) -> bool:
+    cfg = raw["channelConfig"]
+    voucher = raw["voucher"]
+    try:
+        chain_id = get_evm_chain_id(network)
+    except Exception:
+        return False
+    return verify_batch_settlement_voucher_typed_data(
+        signer=None,  # type: ignore[arg-type] — ECDSA path only (non-zero payer_authorizer)
+        channel_id=str(voucher["channelId"]),
+        max_claimable_amount=str(voucher["maxClaimableAmount"]),
+        payer_authorizer=str(cfg["payerAuthorizer"]),
+        payer=str(cfg["payer"]),
+        signature=str(voucher.get("signature", "0x")),
+        chain_id=chain_id,
+    )
+
+
+def _verify_voucher_locally(
+    scheme: BatchSettlementEvmScheme,
+    raw: dict,
+    requirements: PaymentRequirements,
+    channel: Channel | None,
+    now_ms: int,
+) -> VerifyResponse | None:
+    if channel is None or not _is_onchain_state_fresh(
+        channel, scheme.get_onchain_state_ttl_ms(), now_ms
+    ):
+        return None
+
+    cfg = raw["channelConfig"]
+    payer = str(cfg.get("payer", ""))
+    payer_authorizer = str(cfg.get("payerAuthorizer", ""))
+    if not payer_authorizer or int(payer_authorizer, 16) == 0:
+        return None
+
+    from ..types import ChannelConfig
+
+    config = ChannelConfig.from_dict(cfg)
+    voucher = raw["voucher"]
+    channel_id = str(voucher["channelId"])
+
+    err = validate_channel_config(config, channel_id, requirements)
+    if err:
+        return VerifyResponse(is_valid=False, payer=payer, invalid_reason=err)
+
+    if not _verify_local_voucher_signature(raw, str(requirements.network)):
+        return VerifyResponse(
+            is_valid=False, payer=payer, invalid_reason=ERR_INVALID_VOUCHER_SIGNATURE
+        )
+
+    max_claimable = int(voucher["maxClaimableAmount"])
+    if max_claimable > int(channel.balance):
+        return VerifyResponse(
+            is_valid=False, payer=payer, invalid_reason=ERR_CUMULATIVE_EXCEEDS_BALANCE
+        )
+    if max_claimable <= int(channel.total_claimed):
+        return VerifyResponse(
+            is_valid=False, payer=payer, invalid_reason=ERR_CUMULATIVE_AMOUNT_BELOW_CLAIMED
+        )
+
+    return VerifyResponse(
+        is_valid=True,
+        payer=payer,
+        extra={
+            "channelId": channel_id,
+            "balance": channel.balance,
+            "totalClaimed": channel.total_claimed,
+            "withdrawRequestedAt": channel.withdraw_requested_at,
+            "refundNonce": channel.refund_nonce,
+        },
     )
 
 
@@ -171,16 +245,26 @@ def handle_before_verify(
         return AbortResult(reason=ERR_CUMULATIVE_AMOUNT_MISMATCH)
 
     if status == "reserved":
+        from .....schemas.hooks import SkipVerifyResult
         from .scheme import BatchSettlementRequestContext
 
+        channel_snapshot = outcome.get("channel_snapshot")
+        local_result = (
+            _verify_voucher_locally(scheme, raw, requirements, channel_snapshot, now)
+            if is_voucher_payload(raw)
+            else None
+        )
         scheme.merge_request_context(
             payment_payload,
             BatchSettlementRequestContext(
                 channel_id=channel_id,
                 pending_id=pending_id,
-                channel_snapshot=outcome.get("channel_snapshot"),
+                channel_snapshot=channel_snapshot,
+                local_verify=local_result is not None,
             ),
         )
+        if local_result is not None:
+            return SkipVerifyResult(result=local_result)
 
     return None
 
@@ -200,15 +284,11 @@ def handle_after_verify(
         return None
 
     raw = payment_payload.payload
-    is_refund_voucher = False
-
-    if is_deposit_payload(raw) or is_voucher_payload(raw):
-        channel_config_dict = raw["channelConfig"]
-    elif is_refund_payload(raw):
-        channel_config_dict = raw["channelConfig"]
-        is_refund_voucher = True
-    else:
+    if not (is_deposit_payload(raw) or is_voucher_payload(raw) or is_refund_payload(raw)):
         return None
+
+    is_refund_voucher = is_refund_payload(raw)
+    channel_config_dict = raw["channelConfig"]
 
     voucher = raw["voucher"]
     channel_id = voucher["channelId"]
@@ -306,24 +386,28 @@ def handle_enrich_payment_required_response(
         return None
 
     accept_network = payment_payload.accepted.network
-    for req in ctx.requirements:
-        if req.scheme != SCHEME_BATCH_SETTLEMENT or req.network != accept_network:
-            continue
-        extra = dict(req.extra or {})
-        extra["channelState"] = {
-            "channelId": channel.channel_id,
-            "balance": channel.balance,
-            "totalClaimed": channel.total_claimed,
-            "withdrawRequestedAt": channel.withdraw_requested_at,
-            "refundNonce": str(channel.refund_nonce),
-            "chargedCumulativeAmount": channel.charged_cumulative_amount,
-        }
-        extra["voucherState"] = {
-            "signedMaxClaimable": channel.signed_max_claimable,
-            "signature": channel.signature,
-        }
-        req.extra = extra
+    req = next(
+        (r for r in ctx.requirements
+         if r.scheme == SCHEME_BATCH_SETTLEMENT and r.network == accept_network),
+        None,
+    )
+    if req is None:
+        return None
 
+    extra = dict(req.extra or {})
+    extra["channelState"] = {
+        "channelId": channel.channel_id,
+        "balance": channel.balance,
+        "totalClaimed": channel.total_claimed,
+        "withdrawRequestedAt": channel.withdraw_requested_at,
+        "refundNonce": str(channel.refund_nonce),
+        "chargedCumulativeAmount": channel.charged_cumulative_amount,
+    }
+    extra["voucherState"] = {
+        "signedMaxClaimable": channel.signed_max_claimable,
+        "signature": channel.signature,
+    }
+    req.extra = extra
     return ctx.requirements
 
 

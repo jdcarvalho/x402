@@ -1,7 +1,4 @@
-"""Server-side settle lifecycle hooks for the batch-settlement EVM scheme.
-
-Mirrors `typescript/packages/mechanisms/evm/src/batch-settlement/server/settle.ts`.
-"""
+"""Server-side settle lifecycle hooks for the batch-settlement EVM scheme."""
 
 from __future__ import annotations
 

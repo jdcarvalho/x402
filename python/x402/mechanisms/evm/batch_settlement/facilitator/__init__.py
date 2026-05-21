@@ -1,7 +1,4 @@
-"""Facilitator-side primitives for the batch-settlement EVM scheme.
-
-Mirrors `typescript/packages/mechanisms/evm/src/batch-settlement/facilitator/*`.
-"""
+"""Facilitator-side primitives for the batch-settlement EVM scheme."""
 
 from .claim import build_voucher_claim_args, execute_claim_with_signature
 from .deposit import settle_deposit, verify_deposit

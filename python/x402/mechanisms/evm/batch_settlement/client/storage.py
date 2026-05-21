@@ -8,7 +8,7 @@ from typing import Any, Protocol
 
 @dataclass
 class BatchSettlementClientContext:
-    """Client-side channel fields mirrored from PAYMENT-RESPONSE / recovery."""
+    """Client-side channel state for an open payment channel."""
 
     charged_cumulative_amount: str | None = None
     balance: str | None = None

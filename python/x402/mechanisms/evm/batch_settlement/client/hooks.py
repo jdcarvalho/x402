@@ -1,13 +1,8 @@
-"""Lightweight payment-response handler for batch-settlement.
-
-Python's `SchemeNetworkClient` protocol does not (yet) carry post-request
-hooks, so this module exposes a `handle_batch_settlement_payment_response`
-callable that callers (or the `BatchSettlementEvmScheme` class) can invoke
-after each request.
-"""
+"""Payment-response handler for the batch-settlement client."""
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
@@ -25,8 +20,6 @@ from .recovery import process_corrective_payment_required
 
 @dataclass
 class PaymentResponseContext:
-    """Mirror of TS `PaymentResponseContext` for the batch-settlement client."""
-
     payment_payload: dict[str, Any] | None = None
     settle_response: SettleResponse | None = None
     payment_required: PaymentRequired | None = None
@@ -66,9 +59,7 @@ def handle_batch_settlement_payment_response(
 
 def create_batch_settlement_client_hooks(
     deps: BatchSettlementClientDeps,
-):  # type: ignore[no-untyped-def]
-    """Return a callable hook that mirrors the TS `schemeHooks.onPaymentResponse`."""
-
+) -> Callable[[PaymentResponseContext], RecoverySignal | None]:
     def on_payment_response(ctx: PaymentResponseContext) -> RecoverySignal | None:
         return handle_batch_settlement_payment_response(deps, ctx)
 

@@ -1,7 +1,4 @@
-"""Facilitator-side deposit verify + settle.
-
-Mirrors `typescript/packages/mechanisms/evm/src/batch-settlement/facilitator/deposit.ts`.
-"""
+"""Facilitator-side deposit verify + settle."""
 
 from __future__ import annotations
 
@@ -40,7 +37,7 @@ from ..errors import (
     ERR_RPC_READ_FAILED,
 )
 from ..types import DepositPayload
-from ..utils import _coerce_bytes32
+from ..utils import coerce_bytes32
 from .deposit_eip3009 import (
     build_eip3009_deposit_collector_data,
     get_eip3009_deposit_collector_address,
@@ -318,7 +315,7 @@ def _verify_shared_deposit_state(
         )
 
     settlement_addr = to_checksum_address(BATCH_SETTLEMENT_ADDRESS)
-    channel_id_bytes = _coerce_bytes32(voucher.channel_id)
+    channel_id_bytes = coerce_bytes32(voucher.channel_id)
 
     results = multicall(
         signer,

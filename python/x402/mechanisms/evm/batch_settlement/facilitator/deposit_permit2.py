@@ -1,11 +1,7 @@
 """Facilitator-side Permit2 deposit helpers.
 
-Mirrors `typescript/packages/mechanisms/evm/src/batch-settlement/facilitator/deposit-permit2.ts`.
-
-Note: Python's `Erc20ApprovalGasSponsoringSigner` protocol does not expose a
-`simulate_transactions` API, so the bundled approval+deposit simulation step
-present in the TS path is intentionally skipped. Correctness is preserved —
-only the optional pre-flight simulation is missing.
+The bundled approval+deposit pre-flight simulation step is skipped;
+correctness is preserved — only the optional simulation is missing.
 """
 
 from __future__ import annotations

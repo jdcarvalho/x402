@@ -1,7 +1,4 @@
-"""Facilitator-side settle execution (sweep claimed funds to receiver).
-
-Mirrors `typescript/packages/mechanisms/evm/src/batch-settlement/facilitator/settle.ts`.
-"""
+"""Facilitator-side settle execution (sweep claimed funds to receiver)."""
 
 from __future__ import annotations
 

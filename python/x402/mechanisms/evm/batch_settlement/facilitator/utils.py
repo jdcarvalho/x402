@@ -1,7 +1,4 @@
-"""Facilitator-side helpers shared by deposit/voucher/claim/refund/settle handlers.
-
-Mirrors `typescript/packages/mechanisms/evm/src/batch-settlement/facilitator/utils.ts`.
-"""
+"""Facilitator-side helpers shared by deposit/voucher/claim/refund/settle handlers."""
 
 from __future__ import annotations
 
@@ -39,7 +36,7 @@ from ..errors import (
     ERR_WITHDRAW_DELAY_OUT_OF_RANGE,
 )
 from ..types import ChannelConfig, ChannelState
-from ..utils import _coerce_bytes32, compute_channel_id, get_batch_settlement_eip712_domain
+from ..utils import coerce_bytes32, compute_channel_id, get_batch_settlement_eip712_domain
 
 ZERO_ADDRESS = "0x0000000000000000000000000000000000000000"
 
@@ -55,7 +52,7 @@ def to_contract_channel_config(config: ChannelConfig) -> tuple:
         to_checksum_address(config.receiver_authorizer),
         to_checksum_address(config.token),
         int(config.withdraw_delay),
-        _coerce_bytes32(config.salt),
+        coerce_bytes32(config.salt),
     )
 
 
@@ -109,7 +106,7 @@ def verify_batch_settlement_voucher_typed_data(
     """
     domain = get_batch_settlement_eip712_domain(chain_id)
     message = {
-        "channelId": _coerce_bytes32(channel_id),
+        "channelId": coerce_bytes32(channel_id),
         "maxClaimableAmount": int(max_claimable_amount),
     }
 
@@ -183,7 +180,7 @@ def read_channel_state(
 ) -> ChannelState:
     """Read onchain channel state via a 3-call multicall."""
     target = to_checksum_address(BATCH_SETTLEMENT_ADDRESS)
-    channel_id_bytes = _coerce_bytes32(channel_id)
+    channel_id_bytes = coerce_bytes32(channel_id)
 
     results = multicall(
         signer,

@@ -1,7 +1,4 @@
-"""Facilitator-side claimWithSignature execution.
-
-Mirrors `typescript/packages/mechanisms/evm/src/batch-settlement/facilitator/claim.ts`.
-"""
+"""Facilitator-side claimWithSignature execution."""
 
 from __future__ import annotations
 

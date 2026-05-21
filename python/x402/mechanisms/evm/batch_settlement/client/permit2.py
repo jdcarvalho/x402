@@ -25,7 +25,7 @@ from ..types import (
     Permit2DepositWitness,
     Permit2TokenPermissions,
 )
-from ..utils import _coerce_bytes32, compute_channel_id
+from ..utils import coerce_bytes32, compute_channel_id
 from .voucher import sign_voucher
 
 
@@ -61,7 +61,7 @@ def create_batch_settlement_permit2_deposit_payload(
         "nonce": int(nonce),
         "deadline": int(deadline),
         "witness": {
-            "channelId": _coerce_bytes32(channel_id),
+            "channelId": coerce_bytes32(channel_id),
         },
     }
     sig_bytes = signer.sign_typed_data(

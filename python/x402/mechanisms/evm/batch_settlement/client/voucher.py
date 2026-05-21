@@ -6,7 +6,7 @@ from ....evm.signer import ClientEvmSigner
 from ...utils import get_evm_chain_id
 from ..constants import VOUCHER_TYPES
 from ..types import VoucherFields
-from ..utils import _coerce_bytes32, get_batch_settlement_eip712_domain
+from ..utils import coerce_bytes32, get_batch_settlement_eip712_domain
 
 
 def sign_voucher(
@@ -29,7 +29,7 @@ def sign_voucher(
     chain_id = get_evm_chain_id(network)
     domain = get_batch_settlement_eip712_domain(chain_id)
     message = {
-        "channelId": _coerce_bytes32(channel_id),
+        "channelId": coerce_bytes32(channel_id),
         "maxClaimableAmount": int(max_claimable_amount),
     }
     sig_bytes = signer.sign_typed_data(domain, VOUCHER_TYPES, "Voucher", message)

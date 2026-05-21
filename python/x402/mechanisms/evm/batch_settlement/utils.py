@@ -55,11 +55,12 @@ def _channel_config_message(config: ChannelConfig) -> dict[str, Any]:
         "receiverAuthorizer": to_checksum_address(config.receiver_authorizer),
         "token": to_checksum_address(config.token),
         "withdrawDelay": int(config.withdraw_delay),
-        "salt": _coerce_bytes32(config.salt),
+        "salt": coerce_bytes32(config.salt),
     }
 
 
-def _coerce_bytes32(value: str | bytes) -> bytes:
+def coerce_bytes32(value: str | bytes) -> bytes:
+    """Validate and decode a bytes32 input."""
     if isinstance(value, bytes):
         if len(value) != 32:
             raise ValueError(f"bytes32 must be 32 bytes, got {len(value)}")
@@ -72,8 +73,6 @@ def _coerce_bytes32(value: str | bytes) -> bytes:
 
 def compute_channel_id(config: ChannelConfig, network_or_chain_id: str | int) -> str:
     """Compute the chain-bound channel id for a `ChannelConfig`.
-
-    Mirrors TS `computeChannelId(config, networkOrChainId)`.
 
     Args:
         config: Immutable channel configuration.
@@ -100,11 +99,6 @@ def compute_channel_id(config: ChannelConfig, network_or_chain_id: str | int) ->
 def channel_config_to_signing_message(config: ChannelConfig) -> dict[str, Any]:
     """Public helper exposing the EIP-712 message form of a ChannelConfig."""
     return _channel_config_message(config)
-
-
-def coerce_bytes32(value: str | bytes) -> bytes:
-    """Public helper to validate + decode a bytes32 input."""
-    return _coerce_bytes32(value)
 
 
 __all__ = [

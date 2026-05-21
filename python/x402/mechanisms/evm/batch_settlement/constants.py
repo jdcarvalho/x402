@@ -1,7 +1,4 @@
-"""Constants for the batch-settlement EVM scheme.
-
-Mirrors typescript/packages/mechanisms/evm/src/batch-settlement/constants.ts.
-"""
+"""Constants for the batch-settlement EVM scheme."""
 
 from typing import Any
 

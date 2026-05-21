@@ -1,7 +1,6 @@
 """Contract ABIs for the batch-settlement EVM scheme.
 
-Mirrors typescript/packages/mechanisms/evm/src/batch-settlement/abi.ts. The
-shapes are the standard web3.py/eth_abi JSON ABI format.
+Shapes are the standard web3.py/eth_abi JSON ABI format.
 """
 
 from typing import Any

@@ -1,6 +1,5 @@
 """Server-side `BatchSettlementChannelManager` for periodic claim/settle/refund.
 
-Mirrors `typescript/packages/mechanisms/evm/src/batch-settlement/server/channelManager.ts`.
 Uses the sync facilitator-client protocol and a background `threading.Thread`
 per scheduled job to coalesce queued work in priority order.
 """

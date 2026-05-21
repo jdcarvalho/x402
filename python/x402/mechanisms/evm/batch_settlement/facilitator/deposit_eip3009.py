@@ -1,7 +1,4 @@
-"""Facilitator-side ERC-3009 deposit helpers.
-
-Mirrors `typescript/packages/mechanisms/evm/src/batch-settlement/facilitator/deposit-eip3009.ts`.
-"""
+"""Facilitator-side ERC-3009 deposit helpers."""
 
 from __future__ import annotations
 
@@ -26,7 +23,7 @@ from ..errors import (
     ERR_MISSING_EIP712_DOMAIN,
 )
 from ..types import DepositPayload
-from ..utils import _coerce_bytes32
+from ..utils import coerce_bytes32
 from .utils import erc3009_authorization_time_invalid_reason
 
 
@@ -135,7 +132,7 @@ def _verify_receive_auth(
             "value": int(amount),
             "validAfter": valid_after,
             "validBefore": valid_before,
-            "nonce": _coerce_bytes32(nonce),
+            "nonce": coerce_bytes32(nonce),
         }
         return signer.verify_typed_data(
             address=to_checksum_address(payer),

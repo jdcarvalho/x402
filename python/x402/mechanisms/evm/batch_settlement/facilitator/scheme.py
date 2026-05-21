@@ -1,7 +1,4 @@
-"""Facilitator-side dispatcher for the batch-settlement EVM scheme.
-
-Mirrors `typescript/packages/mechanisms/evm/src/batch-settlement/facilitator/scheme.ts`.
-"""
+"""Facilitator-side dispatcher for the batch-settlement EVM scheme."""
 
 from __future__ import annotations
 
@@ -21,6 +18,7 @@ from ..errors import (
 )
 from ..types import (
     AuthorizerSigner,
+    ChannelConfig,
     ClaimPayload,
     DepositPayload,
     EnrichedRefundPayload,
@@ -83,14 +81,10 @@ class BatchSettlementEvmFacilitator:
             )
 
         if is_voucher_payload(raw):
-            from ..types import ChannelConfig
-
             channel_config = ChannelConfig.from_dict(raw["channelConfig"])
             return verify_voucher(self._signer, raw, requirements, channel_config)
 
         if is_refund_payload(raw):
-            from ..types import ChannelConfig
-
             channel_config = ChannelConfig.from_dict(raw["channelConfig"])
             return verify_voucher(self._signer, raw, requirements, channel_config)
 

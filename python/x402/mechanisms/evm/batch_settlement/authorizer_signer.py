@@ -18,7 +18,7 @@ from ..utils import get_evm_chain_id
 from .constants import CLAIM_BATCH_TYPES, REFUND_TYPES
 from .types import AuthorizerSigner, VoucherClaim
 from .utils import (
-    _coerce_bytes32,
+    coerce_bytes32,
     compute_channel_id,
     get_batch_settlement_eip712_domain,
 )
@@ -82,7 +82,7 @@ def sign_claim_batch(
         cid = compute_channel_id(c.channel, chain_id)
         claim_entries.append(
             {
-                "channelId": _coerce_bytes32(cid),
+                "channelId": coerce_bytes32(cid),
                 "maxClaimableAmount": int(c.max_claimable_amount),
                 "totalClaimed": int(c.total_claimed),
             }
@@ -110,7 +110,7 @@ def sign_refund(
         types=REFUND_TYPES,
         primary_type="Refund",
         message={
-            "channelId": _coerce_bytes32(channel_id),
+            "channelId": coerce_bytes32(channel_id),
             "nonce": int(nonce),
             "amount": int(amount),
         },
