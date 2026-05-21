@@ -1,11 +1,12 @@
 [project]
-name = "x402-payment-identifier-client-example"
+name = "x402-batch-settlement-client-example"
 version = "0.1.0"
-description = "Example of using x402 payment-identifier extension for idempotent payments"
+description = "Example httpx client using the x402 batch-settlement EVM scheme"
+readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
+    "x402[httpx,evm]",
     "python-dotenv>=1.0.0",
-    "x402[httpx,evm,extensions]",
 ]
 
 [build-system]

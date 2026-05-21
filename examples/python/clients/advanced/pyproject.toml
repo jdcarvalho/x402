@@ -10,7 +10,6 @@ dependencies = [
 ]
 
 [tool.uv]
-exclude-newer = "3 days"
 
 [tool.uv.sources]
 x402 = { path = "../../../../python/x402", editable = true }
