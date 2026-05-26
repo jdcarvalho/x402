@@ -27,6 +27,7 @@ import {
   decodeTransactionFromPayload,
   getTokenPayerFromTransaction,
   signTransactionWithSigner,
+  transactionMessageHash,
 } from "../../../../shared/svm";
 import { getRpcClient, getRpcSubscriptions } from "../../../../shared/svm/rpc";
 import {
@@ -76,9 +77,15 @@ export async function settle(
 
   const svmPayload = payload.payload as ExactSvmPayload;
 
-  // Duplicate settlement check: reject if this transaction is already being settled.
-  // Must occur before any async work so concurrent calls for the same tx are caught.
-  const txKey = svmPayload.transaction;
+  // Decode the transaction to compute the message hash used as the cache key.
+  // Must remain synchronous (before any await) so concurrent settle calls for
+  // the same payment are caught before any async work begins.
+  const decodedTransaction = decodeTransactionFromPayload(svmPayload);
+
+  // Duplicate settlement check keyed on the message hash, not the raw wire bytes.
+  // The fee-payer signature (slot 0) is overwritten by the facilitator before broadcast,
+  // so an attacker could randomize those bytes to bypass a wire-bytes cache key.
+  const txKey = transactionMessageHash(decodedTransaction);
   if (settlementCache.isDuplicate(txKey)) {
     return {
       success: false,
@@ -87,7 +94,6 @@ export async function settle(
       transaction: "",
     };
   }
-  const decodedTransaction = decodeTransactionFromPayload(svmPayload);
   const signedTransaction = await signTransactionWithSigner(signer, decodedTransaction);
   assertTransactionFullySigned(signedTransaction);
   const payer = getTokenPayerFromTransaction(signedTransaction);

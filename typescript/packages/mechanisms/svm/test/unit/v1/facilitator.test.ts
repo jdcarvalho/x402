@@ -1,10 +1,11 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { COMPUTE_BUDGET_PROGRAM_ADDRESS } from "@solana-program/compute-budget";
 import { ExactSvmSchemeV1 } from "../../../src/exact/v1/facilitator/scheme";
 import type { FacilitatorSvmSigner } from "../../../src/signer";
 import type { PaymentRequirementsV1 } from "@x402/core/types/v1";
 import type { PaymentPayloadV1 } from "@x402/core/types/v1";
 import { USDC_DEVNET_ADDRESS, MAX_COMPUTE_UNIT_PRICE_MICROLAMPORTS } from "../../../src/constants";
+import * as svmUtils from "../../../src/utils";
 
 // Encodes a SetComputeUnitPrice instruction: discriminator(3) + microLamports as u64 LE
 function makeComputePriceData(microLamports: bigint): Uint8Array {
@@ -274,6 +275,20 @@ describe("ExactSvmSchemeV1", () => {
   });
 
   describe("duplicate settlement cache", () => {
+    beforeEach(() => {
+      // Return a fake decoded Transaction whose messageBytes are derived deterministically
+      // from the transaction string. This lets the cache key tests work with arbitrary
+      // test strings without needing real Solana transaction binaries.
+      vi.spyOn(svmUtils, "decodeTransactionFromPayload").mockImplementation(
+        (payload: { transaction: string }) =>
+          ({ messageBytes: new TextEncoder().encode(payload.transaction) }) as never,
+      );
+    });
+
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
     function makePayload(transaction: string): PaymentPayloadV1 {
       return {
         x402Version: 1,

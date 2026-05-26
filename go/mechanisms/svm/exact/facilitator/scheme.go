@@ -273,16 +273,21 @@ func (f *ExactSvmScheme) Settle(
 		return nil, x402.NewSettleError(ErrInvalidPayloadTransaction, verifyResp.Payer, network, "", err.Error())
 	}
 
-	// Duplicate settlement check: reject if this transaction is already being settled.
-	txKey := solanaPayload.Transaction
-	if f.settlementCache.IsDuplicate(txKey) {
-		return nil, x402.NewSettleError(ErrDuplicateSettlement, verifyResp.Payer, network, "", "duplicate transaction")
-	}
-
-	// Decode transaction
+	// Decode transaction before the cache check so we can key on the message hash.
 	tx, err := svm.DecodeTransaction(solanaPayload.Transaction)
 	if err != nil {
 		return nil, x402.NewSettleError(ErrInvalidPayloadTransaction, verifyResp.Payer, network, "", err.Error())
+	}
+
+	// Duplicate settlement check keyed on the message hash, not the raw wire bytes.
+	// The fee-payer signature (slot 0) is overwritten by the facilitator before broadcast,
+	// so an attacker could randomize those bytes to bypass a wire-bytes cache key.
+	txKey, err := svm.MessageHash(tx)
+	if err != nil {
+		return nil, x402.NewSettleError(ErrInvalidPayloadTransaction, verifyResp.Payer, network, "", err.Error())
+	}
+	if f.settlementCache.IsDuplicate(txKey) {
+		return nil, x402.NewSettleError(ErrDuplicateSettlement, verifyResp.Payer, network, "", "duplicate transaction")
 	}
 
 	// Extract and validate feePayer from requirements matches transaction
