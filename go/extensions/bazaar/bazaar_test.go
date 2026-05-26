@@ -373,7 +373,7 @@ func TestValidateDiscoveryExtensionSpec(t *testing.T) {
 
 	t.Run("should fail for MCP missing toolName", func(t *testing.T) {
 		ext := bazaar.DiscoveryExtension{
-			Info: bazaar.DiscoveryInfo{},
+			Info:   bazaar.DiscoveryInfo{},
 			Schema: bazaar.JSONSchema{},
 		}
 		extJSON := `{"info":{"input":{"type":"mcp","inputSchema":{"type":"object"}}},"schema":{}}`
@@ -385,7 +385,7 @@ func TestValidateDiscoveryExtensionSpec(t *testing.T) {
 
 	t.Run("should fail for MCP missing inputSchema", func(t *testing.T) {
 		ext := bazaar.DiscoveryExtension{
-			Info: bazaar.DiscoveryInfo{},
+			Info:   bazaar.DiscoveryInfo{},
 			Schema: bazaar.JSONSchema{},
 		}
 		extJSON := `{"info":{"input":{"type":"mcp","toolName":"t"}},"schema":{}}`
@@ -397,7 +397,7 @@ func TestValidateDiscoveryExtensionSpec(t *testing.T) {
 
 	t.Run("should fail for MCP invalid transport", func(t *testing.T) {
 		ext := bazaar.DiscoveryExtension{
-			Info: bazaar.DiscoveryInfo{},
+			Info:   bazaar.DiscoveryInfo{},
 			Schema: bazaar.JSONSchema{},
 		}
 		extJSON := `{"info":{"input":{"type":"mcp","toolName":"t","inputSchema":{"type":"object"},"transport":"websocket"}},"schema":{}}`

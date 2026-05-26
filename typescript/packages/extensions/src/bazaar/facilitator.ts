@@ -408,7 +408,9 @@ export function validateDiscoveryExtensionSpec(
 
   if (inputType === "mcp") {
     if (typeof inputObj.toolName !== "string" || inputObj.toolName.length === 0) {
-      errors.push("info.input.toolName is required and must be a non-empty string for MCP extensions");
+      errors.push(
+        "info.input.toolName is required and must be a non-empty string for MCP extensions",
+      );
     }
     if (!inputObj.inputSchema || typeof inputObj.inputSchema !== "object") {
       errors.push("info.input.inputSchema is required and must be an object for MCP extensions");

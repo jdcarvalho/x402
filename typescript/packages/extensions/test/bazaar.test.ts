@@ -1674,7 +1674,6 @@ describe("Bazaar Discovery Extension", () => {
     });
   });
 
-<<<<<<< HEAD
   describe("dynamic routes", () => {
     const createMockAdapterWithPath = (path: string): HTTPAdapter => ({
       getHeader: () => undefined,
@@ -2298,14 +2297,18 @@ describe("Bazaar Discovery Extension", () => {
       expect(discovered!.serviceName).toBeUndefined();
       expect(discovered!.tags).toEqual(["weather", "forecast"]);
       expect(discovered!.iconUrl).toBeUndefined();
-=======
+    });
+  });
+
   describe("validateDiscoveryExtensionSpec", () => {
     it("should pass for a valid HTTP GET extension", () => {
       const ext = declareDiscoveryExtension({
         input: { q: "test" },
         inputSchema: { properties: { q: { type: "string" } } },
       });
-      const result = validateDiscoveryExtensionSpec(ext.bazaar as unknown as Record<string, unknown>);
+      const result = validateDiscoveryExtensionSpec(
+        ext.bazaar as unknown as Record<string, unknown>,
+      );
       expect(result.valid).toBe(true);
     });
 
@@ -2315,7 +2318,9 @@ describe("Bazaar Discovery Extension", () => {
         inputSchema: { properties: { name: { type: "string" } } },
         bodyType: "json",
       });
-      const result = validateDiscoveryExtensionSpec(ext.bazaar as unknown as Record<string, unknown>);
+      const result = validateDiscoveryExtensionSpec(
+        ext.bazaar as unknown as Record<string, unknown>,
+      );
       expect(result.valid).toBe(true);
     });
 
@@ -2324,7 +2329,9 @@ describe("Bazaar Discovery Extension", () => {
         toolName: "my_tool",
         inputSchema: { type: "object", properties: { q: { type: "string" } } },
       });
-      const result = validateDiscoveryExtensionSpec(ext.bazaar as unknown as Record<string, unknown>);
+      const result = validateDiscoveryExtensionSpec(
+        ext.bazaar as unknown as Record<string, unknown>,
+      );
       expect(result.valid).toBe(true);
     });
 
@@ -2429,7 +2436,9 @@ describe("Bazaar Discovery Extension", () => {
     it("should return false when no routes have bazaar extensions", () => {
       const routes = {
         "/api": {
-          accepts: [{ scheme: "exact", payTo: "0x1", price: "$0.01", network: "eip155:1" as const }],
+          accepts: [
+            { scheme: "exact", payTo: "0x1", price: "$0.01", network: "eip155:1" as const },
+          ],
         },
       };
       expect(checkIfBazaarNeeded(routes)).toBe(false);
@@ -2438,10 +2447,14 @@ describe("Bazaar Discovery Extension", () => {
     it("should return true when any route in multi-route config has bazaar", () => {
       const routes = {
         "/a": {
-          accepts: [{ scheme: "exact", payTo: "0x1", price: "$0.01", network: "eip155:1" as const }],
+          accepts: [
+            { scheme: "exact", payTo: "0x1", price: "$0.01", network: "eip155:1" as const },
+          ],
         },
         "/b": {
-          accepts: [{ scheme: "exact", payTo: "0x1", price: "$0.01", network: "eip155:1" as const }],
+          accepts: [
+            { scheme: "exact", payTo: "0x1", price: "$0.01", network: "eip155:1" as const },
+          ],
           extensions: { bazaar: {} },
         },
       };
@@ -2454,7 +2467,9 @@ describe("Bazaar Discovery Extension", () => {
       const spy = vi.spyOn(console, "warn").mockImplementation(() => {});
       const routes = {
         "/api": {
-          accepts: [{ scheme: "exact", payTo: "0x1", price: "$0.01", network: "eip155:1" as const }],
+          accepts: [
+            { scheme: "exact", payTo: "0x1", price: "$0.01", network: "eip155:1" as const },
+          ],
         },
       };
       validateBazaarRouteExtensions(routes);
@@ -2470,7 +2485,9 @@ describe("Bazaar Discovery Extension", () => {
       });
       const routes = {
         "/api": {
-          accepts: [{ scheme: "exact", payTo: "0x1", price: "$0.01", network: "eip155:1" as const }],
+          accepts: [
+            { scheme: "exact", payTo: "0x1", price: "$0.01", network: "eip155:1" as const },
+          ],
           extensions: ext,
         },
       };
@@ -2483,7 +2500,9 @@ describe("Bazaar Discovery Extension", () => {
       const spy = vi.spyOn(console, "warn").mockImplementation(() => {});
       const routes = {
         "/api": {
-          accepts: [{ scheme: "exact", payTo: "0x1", price: "$0.01", network: "eip155:1" as const }],
+          accepts: [
+            { scheme: "exact", payTo: "0x1", price: "$0.01", network: "eip155:1" as const },
+          ],
           extensions: {
             bazaar: {
               info: { input: { type: "grpc" } },
@@ -2496,7 +2515,6 @@ describe("Bazaar Discovery Extension", () => {
       expect(spy).toHaveBeenCalledTimes(1);
       expect(spy.mock.calls[0][0]).toContain("invalid bazaar extension");
       spy.mockRestore();
->>>>>>> ab8f848f (feat: pr feedback)
     });
   });
 });

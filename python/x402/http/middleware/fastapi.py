@@ -27,7 +27,6 @@ from ..types import (
     HTTPRequestContext,
     HTTPTransportContext,
     PaywallConfig,
-    RouteConfig,
     RoutesConfig,
 )
 from ..x402_http_server import PaywallProvider, x402HTTPResourceServer
@@ -42,10 +41,13 @@ if TYPE_CHECKING:
 
 from ._bazaar_utils import (
     check_if_bazaar_needed as _check_if_bazaar_needed,
+)
+from ._bazaar_utils import (
     register_bazaar_extension as _register_bazaar_extension,
+)
+from ._bazaar_utils import (
     validate_bazaar_extensions as _validate_bazaar_extensions,
 )
-
 
 # ============================================================================
 # FastAPI Adapter

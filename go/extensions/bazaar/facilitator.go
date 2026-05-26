@@ -127,7 +127,8 @@ func ValidateDiscoveryExtensionSpec(extension types.DiscoveryExtension) Validati
 	if inputType == "http" {
 		if method, ok := raw.Input["method"]; ok {
 			methodStr, _ := method.(string)
-			if !types.IsQueryMethod(methodStr) && !types.IsBodyMethod(methodStr) {
+			// Empty string means pre-enrichment (method not yet set); skip validation.
+			if methodStr != "" && !types.IsQueryMethod(methodStr) && !types.IsBodyMethod(methodStr) {
 				errors = append(errors, fmt.Sprintf(
 					"info.input.method must be one of DELETE, GET, HEAD, PATCH, POST, PUT, got %q", methodStr))
 			}
@@ -141,7 +142,7 @@ func ValidateDiscoveryExtensionSpec(extension types.DiscoveryExtension) Validati
 			}
 			if method, ok2 := raw.Input["method"]; ok2 {
 				methodStr, _ := method.(string)
-				if !types.IsBodyMethod(methodStr) {
+				if methodStr != "" && !types.IsBodyMethod(methodStr) {
 					errors = append(errors, fmt.Sprintf(
 						`info.input.bodyType is set but method %q is not a body method (POST, PUT, PATCH)`, methodStr))
 				}

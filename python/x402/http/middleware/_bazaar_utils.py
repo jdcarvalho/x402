@@ -66,7 +66,10 @@ def validate_bazaar_extensions(routes: RoutesConfig) -> None:
         routes: Route configuration.
     """
     try:
-        from ...extensions.bazaar import validate_discovery_extension, validate_discovery_extension_spec
+        from ...extensions.bazaar import (
+            validate_discovery_extension,
+            validate_discovery_extension_spec,
+        )
     except ImportError:
         return
 
