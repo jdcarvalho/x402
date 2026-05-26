@@ -298,7 +298,7 @@ export async function settleEIP3009(
       if (!bytecode || bytecode === "0x") {
         const normalizedFactory = factoryAddress.toLowerCase();
         const isAllowed = (config.eip6492AllowedFactories ?? []).some(
-          (allowed) => allowed.toLowerCase() === normalizedFactory,
+          allowed => allowed.toLowerCase() === normalizedFactory,
         );
         if (!isAllowed) {
           return {

@@ -73,6 +73,7 @@ export class ExactEvmSchemeV1 implements SchemeNetworkFacilitator {
   ) {
     this.config = {
       deployERC4337WithEIP6492: config?.deployERC4337WithEIP6492 ?? false,
+      eip6492AllowedFactories: config?.eip6492AllowedFactories ?? [],
       simulateInSettle: config?.simulateInSettle ?? false,
     };
   }
@@ -161,7 +162,7 @@ export class ExactEvmSchemeV1 implements SchemeNetworkFacilitator {
         if (!bytecode || bytecode === "0x") {
           const normalizedFactory = factoryAddress.toLowerCase();
           const isAllowed = (this.config.eip6492AllowedFactories ?? []).some(
-            (allowed) => allowed.toLowerCase() === normalizedFactory,
+            allowed => allowed.toLowerCase() === normalizedFactory,
           );
           if (!isAllowed) {
             return {
