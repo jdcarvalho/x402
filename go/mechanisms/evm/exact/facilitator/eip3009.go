@@ -180,6 +180,10 @@ func (f *ExactEvmScheme) settleEIP3009(
 				return nil, x402.NewSettleError(ErrUndeployedSmartWallet, verifyResp.Payer, network, "", "")
 			}
 
+			if !IsFactoryAllowed(sigData.Factory, f.config.EIP6492AllowedFactories) {
+				return nil, x402.NewSettleError(ErrFactoryNotAllowed, verifyResp.Payer, network, "", "")
+			}
+
 			if err := DeploySmartWallet(ctx, f.signer, sigData); err != nil {
 				return nil, x402.NewSettleError(ErrSmartWalletDeploymentFailed, verifyResp.Payer, network, "", err.Error())
 			}

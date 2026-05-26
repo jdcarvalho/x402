@@ -94,6 +94,9 @@ register_exact_evm_facilitator(
     evm_signer,
     networks="eip155:84532",  # Base Sepolia
     deploy_erc4337_with_eip6492=True,
+    # Add trusted ERC-6492 factory addresses here (e.g. your chosen ERC-4337 smart wallet factory).
+    # An empty list denies all factory deployment calls.
+    eip6492_allowed_factories=[],
 )
 register_exact_svm_facilitator(
     facilitator,

@@ -53,6 +53,9 @@ func main() {
 	// Register V2 EVM scheme with smart wallet deployment enabled
 	evmConfig := &evm.ExactEvmSchemeConfig{
 		DeployERC4337WithEIP6492: true,
+		// Add trusted ERC-6492 factory addresses here (e.g. your chosen ERC-4337 smart wallet factory).
+		// An empty slice denies all factory deployment calls.
+		EIP6492AllowedFactories: []string{},
 	}
 	facilitator.Register([]x402.Network{evmNetwork}, evm.NewExactEvmScheme(evmSigner, evmConfig))
 	facilitator.Register([]x402.Network{evmNetwork}, uptoevm.NewUptoEvmScheme(evmSigner, nil))
@@ -60,6 +63,9 @@ func main() {
 	// Register V1 EVM scheme with smart wallet deployment enabled
 	evmV1Config := &evmv1.ExactEvmSchemeV1Config{
 		DeployERC4337WithEIP6492: true,
+		// Add trusted ERC-6492 factory addresses here (e.g. your chosen ERC-4337 smart wallet factory).
+		// An empty slice denies all factory deployment calls.
+		EIP6492AllowedFactories: []string{},
 	}
 	facilitator.RegisterV1([]x402.Network{"base-sepolia"}, evmv1.NewExactEvmSchemeV1(evmSigner, evmV1Config))
 

@@ -29,9 +29,22 @@ export interface ExactEvmSchemeV1Config {
    * If enabled, the facilitator will deploy ERC-4337 smart wallets
    * via EIP-6492 when encountering undeployed contract signatures.
    *
+   * When true, eip6492AllowedFactories must be non-empty or all factory deployments are denied.
+   *
    * @default false
    */
   deployERC4337WithEIP6492?: boolean;
+  /**
+   * Allowlist of factory contract addresses (hex strings, case-insensitive) that the facilitator
+   * will call when deploying an undeployed smart wallet via ERC-6492.
+   *
+   * An empty or omitted list denies all factory calls even when deployERC4337WithEIP6492 is true.
+   * Facilitators must explicitly list every factory they trust to prevent arbitrary transaction
+   * injection via attacker-controlled ERC-6492 signature wrappers.
+   *
+   * @default []
+   */
+  eip6492AllowedFactories?: string[];
   /**
    * If enabled, simulates transaction before settling. Defaults to false, ie only simulate during verify.
    *
@@ -146,6 +159,20 @@ export class ExactEvmSchemeV1 implements SchemeNetworkFacilitator {
         const bytecode = await this.signer.getCode({ address: payerAddress });
 
         if (!bytecode || bytecode === "0x") {
+          const normalizedFactory = factoryAddress.toLowerCase();
+          const isAllowed = (this.config.eip6492AllowedFactories ?? []).some(
+            (allowed) => allowed.toLowerCase() === normalizedFactory,
+          );
+          if (!isAllowed) {
+            return {
+              success: false,
+              errorReason: Errors.ErrFactoryNotAllowed,
+              transaction: "",
+              network: payloadV1.network,
+              payer: exactEvmPayload.authorization.from,
+            };
+          }
+
           // Send the factory calldata directly as a transaction
           // The factoryCalldata already contains the complete encoded function call
           const deployTx = await this.signer.sendTransaction({

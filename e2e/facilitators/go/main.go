@@ -866,9 +866,8 @@ func main() {
 	facilitator := x402.Newx402Facilitator()
 
 	// Register EVM schemes with dynamic network
-	// Enable smart wallet deployment via EIP-6492
 	evmConfig := &exactevm.ExactEvmSchemeConfig{
-		DeployERC4337WithEIP6492: true,
+		DeployERC4337WithEIP6492: false,
 	}
 	evmFacilitatorScheme := exactevm.NewExactEvmScheme(evmSigner, evmConfig)
 	facilitator.Register([]x402.Network{x402.Network(evmNetwork)}, evmFacilitatorScheme)
@@ -894,7 +893,7 @@ func main() {
 	facilitator.Register([]x402.Network{x402.Network(evmNetwork)}, batchedScheme)
 
 	evmV1Config := &exactevmv1.ExactEvmSchemeV1Config{
-		DeployERC4337WithEIP6492: true,
+		DeployERC4337WithEIP6492: false,
 	}
 	evmFacilitatorV1Scheme := exactevmv1.NewExactEvmSchemeV1(evmSigner, evmV1Config)
 	facilitator.RegisterV1([]x402.Network{x402.Network(getV1EvmNetwork(evmNetwork))}, evmFacilitatorV1Scheme)

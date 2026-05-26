@@ -1,0 +1,5 @@
+---
+"@x402/evm": major
+---
+
+**[Breaking for facilitator implementers with `deployERC4337WithEIP6492: true`]** Fixed ERC-6492 factory call injection vulnerability in EVM exact settlement (v1 and v2). When `deployERC4337WithEIP6492` was enabled, the facilitator extracted factory address and calldata from the payer's ERC-6492 signature wrapper and broadcast them as a transaction from its funded EOA with no address validation, allowing an attacker to inject arbitrary on-chain calls. A new `eip6492AllowedFactories?: string[]` field has been added to `EIP3009FacilitatorConfig` (v2) and `ExactEvmSchemeV1Config` (v1). Settlement now rejects any factory address not present in this list with error `eip6492_factory_not_allowed`. **The default is an empty array, which denies all factory deployment calls** — this replaces the previous unconstrained behaviour. Facilitators with `deployERC4337WithEIP6492: true` must populate `eip6492AllowedFactories` with every factory address they trust; facilitators that do not use this option are unaffected.

@@ -119,7 +119,12 @@ const facilitator = new x402Facilitator()
 // Register EVM and SVM schemes
 facilitator.register(
   "eip155:84532",
-  new ExactEvmScheme(evmSigner, { deployERC4337WithEIP6492: true }),
+  new ExactEvmScheme(evmSigner, {
+    deployERC4337WithEIP6492: true,
+    // Add trusted ERC-6492 factory addresses here (e.g. your chosen ERC-4337 smart wallet factory).
+    // An empty array denies all factory deployment calls.
+    eip6492AllowedFactories: [],
+  }),
 ); // Base Sepolia
 facilitator.register("eip155:84532", new UptoEvmScheme(evmSigner));
 facilitator.register(

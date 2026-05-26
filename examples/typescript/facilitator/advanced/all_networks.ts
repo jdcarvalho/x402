@@ -157,7 +157,12 @@ if (evmPrivateKey) {
 
   facilitator.register(
     EVM_NETWORK,
-    new ExactEvmScheme(evmSigner, { deployERC4337WithEIP6492: true }),
+    new ExactEvmScheme(evmSigner, {
+      deployERC4337WithEIP6492: true,
+      // Add trusted ERC-6492 factory addresses here (e.g. your chosen ERC-4337 smart wallet factory).
+      // An empty array denies all factory deployment calls.
+      eip6492AllowedFactories: [],
+    }),
   );
   facilitator.register(EVM_NETWORK, new UptoEvmScheme(evmSigner));
 }

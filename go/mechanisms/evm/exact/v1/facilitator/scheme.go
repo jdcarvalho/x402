@@ -21,8 +21,15 @@ import (
 // ExactEvmSchemeV1Config holds configuration for the ExactEvmSchemeV1 facilitator
 type ExactEvmSchemeV1Config struct {
 	// DeployERC4337WithEIP6492 enables automatic deployment of ERC-4337 smart wallets
-	// via EIP-6492 when encountering undeployed contract signatures during settlement
+	// via EIP-6492 when encountering undeployed contract signatures during settlement.
+	// When true, EIP6492AllowedFactories must be non-empty or all factory deployments are denied.
 	DeployERC4337WithEIP6492 bool
+	// EIP6492AllowedFactories is the allowlist of factory contract addresses (hex strings,
+	// case-insensitive) that the facilitator will call when deploying an undeployed smart wallet.
+	// An empty allowlist denies all factory calls even when DeployERC4337WithEIP6492 is true.
+	// Facilitators must explicitly list every factory they trust to prevent arbitrary transaction
+	// injection via attacker-controlled ERC-6492 signature wrappers.
+	EIP6492AllowedFactories []string
 	// SimulateInSettle reruns transfer simulation during settle. Verify always simulates.
 	SimulateInSettle bool
 }
@@ -286,16 +293,16 @@ func (f *ExactEvmSchemeV1) Settle(
 		}
 
 		if len(code) == 0 {
-			// Wallet not deployed
-			if f.config.DeployERC4337WithEIP6492 {
-				// Deploy wallet
-				err := f.deploySmartWallet(ctx, sigData)
-				if err != nil {
-					return nil, x402.NewSettleError(ErrSmartWalletDeploymentFailed, verifyResp.Payer, network, "", err.Error())
-				}
-			} else {
-				// Deployment not enabled - fail settlement
+			if !f.config.DeployERC4337WithEIP6492 {
 				return nil, x402.NewSettleError(ErrUndeployedSmartWallet, verifyResp.Payer, network, "", "")
+			}
+
+			if !exactfacilitator.IsFactoryAllowed(sigData.Factory, f.config.EIP6492AllowedFactories) {
+				return nil, x402.NewSettleError(ErrFactoryNotAllowed, verifyResp.Payer, network, "", "")
+			}
+
+			if err := f.deploySmartWallet(ctx, sigData); err != nil {
+				return nil, x402.NewSettleError(ErrSmartWalletDeploymentFailed, verifyResp.Payer, network, "", err.Error())
 			}
 		}
 	}
