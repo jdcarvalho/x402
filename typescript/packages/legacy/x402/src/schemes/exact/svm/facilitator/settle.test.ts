@@ -19,10 +19,12 @@ vi.mock("../../../../shared/svm", async importOriginal => {
   const actual = await importOriginal<typeof import("../../../../shared/svm")>();
   return {
     ...actual, // real transactionMessageHash so cache keys are meaningful
-    decodeTransactionFromPayload: vi.fn().mockImplementation((payload: { transaction: string }) => ({
-      messageBytes: new TextEncoder().encode(payload.transaction),
-      signatures: {},
-    })),
+    decodeTransactionFromPayload: vi
+      .fn()
+      .mockImplementation((payload: { transaction: string }) => ({
+        messageBytes: new TextEncoder().encode(payload.transaction),
+        signatures: {},
+      })),
     getTokenPayerFromTransaction: vi.fn(),
     signTransactionWithSigner: vi.fn(),
   };
