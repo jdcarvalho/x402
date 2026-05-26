@@ -48,7 +48,7 @@ import { SettlementCache } from "./settlement-cache";
  * @param config - Optional configuration for X402 operations (e.g., custom RPC URLs)
  * @returns A SettleResponse indicating if the payment is settled and any error reason
  */
-const settlementCache = new SettlementCache();
+export const settlementCache = new SettlementCache();
 
 /**
  * Settles an exact SVM payment by verifying the payment and recording the settlement.
@@ -82,9 +82,7 @@ export async function settle(
   // the same payment are caught before any async work begins.
   const decodedTransaction = decodeTransactionFromPayload(svmPayload);
 
-  // Duplicate settlement check keyed on the message hash, not the raw wire bytes.
-  // The fee-payer signature (slot 0) is overwritten by the facilitator before broadcast,
-  // so an attacker could randomize those bytes to bypass a wire-bytes cache key.
+  // Duplicate settlement check keyed on message hash (immune to mutable fee-payer sig at slot 0).
   const txKey = transactionMessageHash(decodedTransaction);
   if (settlementCache.isDuplicate(txKey)) {
     return {

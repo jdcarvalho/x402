@@ -279,9 +279,7 @@ func (f *ExactSvmScheme) Settle(
 		return nil, x402.NewSettleError(ErrInvalidPayloadTransaction, verifyResp.Payer, network, "", err.Error())
 	}
 
-	// Duplicate settlement check keyed on the message hash, not the raw wire bytes.
-	// The fee-payer signature (slot 0) is overwritten by the facilitator before broadcast,
-	// so an attacker could randomize those bytes to bypass a wire-bytes cache key.
+	// Duplicate settlement check keyed on message hash (immune to mutable fee-payer sig at slot 0).
 	txKey, err := svm.MessageHash(tx)
 	if err != nil {
 		return nil, x402.NewSettleError(ErrInvalidPayloadTransaction, verifyResp.Payer, network, "", err.Error())

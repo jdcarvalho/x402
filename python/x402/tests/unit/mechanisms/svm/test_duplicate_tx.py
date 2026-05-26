@@ -1,7 +1,6 @@
 """Memo-based uniqueness tests for SVM payments."""
 
 import base64
-
 from unittest.mock import MagicMock, patch
 
 import pytest

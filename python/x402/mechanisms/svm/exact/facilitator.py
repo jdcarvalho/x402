@@ -54,9 +54,9 @@ from ..signer import FacilitatorSvmSigner
 from ..types import ExactSvmPayload
 from ..utils import (
     decode_transaction_from_payload,
-    transaction_message_hash,
     derive_ata,
     get_token_payer_from_transaction,
+    transaction_message_hash,
 )
 
 
@@ -393,9 +393,7 @@ class ExactSvmScheme:
         # Decode the transaction to compute the message hash used as the cache key.
         tx = decode_transaction_from_payload(svm_payload)
 
-        # Duplicate settlement check keyed on the message hash, not the raw wire bytes.
-        # The fee-payer signature (slot 0) is overwritten by the facilitator before broadcast,
-        # so an attacker could randomize those bytes to bypass a wire-bytes cache key.
+        # Duplicate settlement check keyed on message hash (immune to mutable fee-payer sig at slot 0).
         tx_key = transaction_message_hash(tx)
         if self._settlement_cache.is_duplicate(tx_key):
             return SettleResponse(

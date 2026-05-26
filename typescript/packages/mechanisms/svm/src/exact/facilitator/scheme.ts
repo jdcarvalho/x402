@@ -390,9 +390,7 @@ export class ExactSvmScheme implements SchemeNetworkFacilitator {
     // the same payment are caught before any async work begins.
     const decodedTx = decodeTransactionFromPayload(exactSvmPayload);
 
-    // Duplicate settlement check keyed on the message hash, not the raw wire bytes.
-    // The fee-payer signature (slot 0) is overwritten by the facilitator before broadcast,
-    // so an attacker could randomize those bytes to bypass a wire-bytes cache key.
+    // Duplicate settlement check keyed on message hash (immune to mutable fee-payer sig at slot 0).
     const txKey = transactionMessageHash(decodedTx);
     if (this.settlementCache.isDuplicate(txKey)) {
       return {

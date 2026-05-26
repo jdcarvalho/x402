@@ -1,6 +1,6 @@
 """Tests for ExactSvmScheme facilitator."""
 
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 import pytest
 
@@ -327,8 +327,14 @@ class TestDuplicateSettlementCache:
         strings → different hashes → cache miss.
         """
         fake = lambda payload: _FakeTx(payload.transaction)  # noqa: E731
-        with patch("x402.mechanisms.svm.exact.facilitator.decode_transaction_from_payload", side_effect=fake):
-            with patch("x402.mechanisms.svm.exact.v1.facilitator.decode_transaction_from_payload", side_effect=fake):
+        with patch(
+            "x402.mechanisms.svm.exact.facilitator.decode_transaction_from_payload",
+            side_effect=fake,
+        ):
+            with patch(
+                "x402.mechanisms.svm.exact.v1.facilitator.decode_transaction_from_payload",
+                side_effect=fake,
+            ):
                 yield
 
     def _make_payload(self, transaction: str) -> PaymentPayload:
