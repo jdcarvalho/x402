@@ -11,10 +11,16 @@ import { validateDiscoveryExtension, validateDiscoveryExtensionSpec } from "./fa
 
 const HTTP_VERB_RE = /^(GET|POST|PUT|PATCH|DELETE|HEAD)\b/i;
 
-// Inject a synthetic method into a pre-enrichment extension so the schema's
-// required:["method"] check doesn't produce a false-positive warning.
-// Priority: (1) route pattern verb, (2) body vs query inference.
-// Returns the same object unchanged if method is already present.
+/**
+ * Inject a synthetic method into a pre-enrichment extension so the schema's
+ * required:["method"] check doesn't produce a false-positive warning at startup.
+ * Priority: (1) route pattern verb (e.g. "GET /api"), (2) body vs query inference.
+ * Returns the same object unchanged if method is already present.
+ *
+ * @param ext - The raw bazaar extension object
+ * @param pattern - The route pattern key (e.g. "GET /api" or "*")
+ * @returns The extension with a synthetic method injected into info.input if needed
+ */
 function withSyntheticMethod(
   ext: Record<string, unknown>,
   pattern: string,
@@ -75,7 +81,9 @@ export function validateBazaarRouteExtensions(routes: RoutesConfig): void {
         continue;
       }
       const extForSchema = withSyntheticMethod(bazaarExt as Record<string, unknown>, pattern);
-      const schemaResult = validateDiscoveryExtension(extForSchema as DiscoveryExtension);
+      const schemaResult = validateDiscoveryExtension(
+        extForSchema as unknown as DiscoveryExtension,
+      );
       if (!schemaResult.valid) {
         console.warn(
           `x402: Route "${pattern}" has an invalid bazaar extension: ${schemaResult.errors?.join(", ")}`,
