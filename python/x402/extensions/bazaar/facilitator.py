@@ -454,17 +454,25 @@ def validate_discovery_extension_spec(extension: dict[str, Any] | object) -> Val
         return ValidationResult(valid=False, errors=errors)
 
     if input_type == "http":
-        method = input_data.get("method") if isinstance(input_data, dict) else getattr(input_data, "method", None)
+        method = (
+            input_data.get("method")
+            if isinstance(input_data, dict)
+            else getattr(input_data, "method", None)
+        )
         if method is not None and method not in _VALID_METHODS:
             errors.append(
-                f"info.input.method must be one of {', '.join(sorted(_VALID_METHODS))}, got \"{method}\""
+                f'info.input.method must be one of {", ".join(sorted(_VALID_METHODS))}, got "{method}"'
             )
 
-        body_type = input_data.get("bodyType") if isinstance(input_data, dict) else getattr(input_data, "body_type", None)
+        body_type = (
+            input_data.get("bodyType")
+            if isinstance(input_data, dict)
+            else getattr(input_data, "body_type", None)
+        )
         if body_type is not None:
             if body_type not in _VALID_BODY_TYPES:
                 errors.append(
-                    f"info.input.bodyType must be one of {', '.join(sorted(_VALID_BODY_TYPES))}, got \"{body_type}\""
+                    f'info.input.bodyType must be one of {", ".join(sorted(_VALID_BODY_TYPES))}, got "{body_type}"'
                 )
             if method is not None and method not in _VALID_BODY_METHODS:
                 errors.append(
@@ -472,21 +480,39 @@ def validate_discovery_extension_spec(extension: dict[str, Any] | object) -> Val
                 )
 
     if input_type == "mcp":
-        tool_name = input_data.get("toolName") if isinstance(input_data, dict) else getattr(input_data, "tool_name", None)
+        tool_name = (
+            input_data.get("toolName")
+            if isinstance(input_data, dict)
+            else getattr(input_data, "tool_name", None)
+        )
         if not isinstance(tool_name, str) or len(tool_name) == 0:
-            errors.append("info.input.toolName is required and must be a non-empty string for MCP extensions")
-
-        input_schema = input_data.get("inputSchema") if isinstance(input_data, dict) else getattr(input_data, "input_schema", None)
-        if not input_schema or not isinstance(input_schema, dict):
-            errors.append("info.input.inputSchema is required and must be an object for MCP extensions")
-
-        transport = input_data.get("transport") if isinstance(input_data, dict) else getattr(input_data, "transport", None)
-        if transport is not None and transport not in _VALID_MCP_TRANSPORTS:
             errors.append(
-                f"info.input.transport must be one of {', '.join(sorted(_VALID_MCP_TRANSPORTS))}, got \"{transport}\""
+                "info.input.toolName is required and must be a non-empty string for MCP extensions"
             )
 
-    return ValidationResult(valid=True) if not errors else ValidationResult(valid=False, errors=errors)
+        input_schema = (
+            input_data.get("inputSchema")
+            if isinstance(input_data, dict)
+            else getattr(input_data, "input_schema", None)
+        )
+        if not input_schema or not isinstance(input_schema, dict):
+            errors.append(
+                "info.input.inputSchema is required and must be an object for MCP extensions"
+            )
+
+        transport = (
+            input_data.get("transport")
+            if isinstance(input_data, dict)
+            else getattr(input_data, "transport", None)
+        )
+        if transport is not None and transport not in _VALID_MCP_TRANSPORTS:
+            errors.append(
+                f'info.input.transport must be one of {", ".join(sorted(_VALID_MCP_TRANSPORTS))}, got "{transport}"'
+            )
+
+    return (
+        ValidationResult(valid=True) if not errors else ValidationResult(valid=False, errors=errors)
+    )
 
 
 def _get_method_from_info(info: DiscoveryInfo | dict[str, Any]) -> str:
