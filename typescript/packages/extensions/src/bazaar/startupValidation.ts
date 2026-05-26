@@ -9,6 +9,30 @@ import type { RoutesConfig } from "@x402/core/server";
 import type { DiscoveryExtension } from "./types";
 import { validateDiscoveryExtension, validateDiscoveryExtensionSpec } from "./facilitator";
 
+const HTTP_VERB_RE = /^(GET|POST|PUT|PATCH|DELETE|HEAD)\b/i;
+
+// Inject a synthetic method into a pre-enrichment extension so the schema's
+// required:["method"] check doesn't produce a false-positive warning.
+// Priority: (1) route pattern verb, (2) body vs query inference.
+// Returns the same object unchanged if method is already present.
+function withSyntheticMethod(
+  ext: Record<string, unknown>,
+  pattern: string,
+): Record<string, unknown> {
+  const info = ext.info as Record<string, unknown> | undefined;
+  const input = info?.input as Record<string, unknown> | undefined;
+  if (!input || (typeof input.method === "string" && input.method)) {
+    return ext;
+  }
+  const verbMatch = pattern.match(HTTP_VERB_RE);
+  const method = verbMatch
+    ? verbMatch[1].toUpperCase()
+    : input.body !== undefined || input.bodyType !== undefined
+      ? "POST"
+      : "GET";
+  return { ...ext, info: { ...info, input: { ...input, method } } };
+}
+
 /**
  * Check if any routes in the configuration declare bazaar extensions.
  *
@@ -50,7 +74,8 @@ export function validateBazaarRouteExtensions(routes: RoutesConfig): void {
         );
         continue;
       }
-      const schemaResult = validateDiscoveryExtension(bazaarExt as DiscoveryExtension);
+      const extForSchema = withSyntheticMethod(bazaarExt as Record<string, unknown>, pattern);
+      const schemaResult = validateDiscoveryExtension(extForSchema as DiscoveryExtension);
       if (!schemaResult.valid) {
         console.warn(
           `x402: Route "${pattern}" has an invalid bazaar extension: ${schemaResult.errors?.join(", ")}`,
