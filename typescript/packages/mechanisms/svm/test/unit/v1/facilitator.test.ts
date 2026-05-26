@@ -1,9 +1,19 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { COMPUTE_BUDGET_PROGRAM_ADDRESS } from "@solana-program/compute-budget";
 import { ExactSvmSchemeV1 } from "../../../src/exact/v1/facilitator/scheme";
 import type { FacilitatorSvmSigner } from "../../../src/signer";
 import type { PaymentRequirementsV1 } from "@x402/core/types/v1";
 import type { PaymentPayloadV1 } from "@x402/core/types/v1";
-import { USDC_DEVNET_ADDRESS } from "../../../src/constants";
+import { USDC_DEVNET_ADDRESS, MAX_COMPUTE_UNIT_PRICE_MICROLAMPORTS } from "../../../src/constants";
+
+// Encodes a SetComputeUnitPrice instruction: discriminator(3) + microLamports as u64 LE
+function makeComputePriceData(microLamports: bigint): Uint8Array {
+  const buf = new ArrayBuffer(9);
+  const view = new DataView(buf);
+  view.setUint8(0, 3);
+  view.setBigUint64(1, microLamports, true);
+  return new Uint8Array(buf);
+}
 
 describe("ExactSvmSchemeV1", () => {
   let mockSigner: FacilitatorSvmSigner;
@@ -169,6 +179,64 @@ describe("ExactSvmSchemeV1", () => {
       expect(result.isValid).toBe(false);
       // Transaction decoding or instruction parsing fails
       expect(result.invalidReason).toContain("invalid_exact_svm_payload_transaction");
+    });
+  });
+
+  describe("verifyComputePriceInstruction (price cap)", () => {
+    it("should reject price above MAX_COMPUTE_UNIT_PRICE_MICROLAMPORTS", () => {
+      const facilitator = new ExactSvmSchemeV1(mockSigner);
+      const instruction = {
+        programAddress: COMPUTE_BUDGET_PROGRAM_ADDRESS,
+        data: makeComputePriceData(BigInt(MAX_COMPUTE_UNIT_PRICE_MICROLAMPORTS) + 1n),
+      };
+      expect(() =>
+        (
+          facilitator as unknown as { verifyComputePriceInstruction: (i: unknown) => void }
+        ).verifyComputePriceInstruction(instruction),
+      ).toThrow(
+        "invalid_exact_svm_payload_transaction_instructions_compute_price_instruction_too_high",
+      );
+    });
+
+    it("should reject price well above MAX_COMPUTE_UNIT_PRICE_MICROLAMPORTS", () => {
+      const facilitator = new ExactSvmSchemeV1(mockSigner);
+      const instruction = {
+        programAddress: COMPUTE_BUDGET_PROGRAM_ADDRESS,
+        data: makeComputePriceData(BigInt("18446744073709551615")), // u64::MAX
+      };
+      expect(() =>
+        (
+          facilitator as unknown as { verifyComputePriceInstruction: (i: unknown) => void }
+        ).verifyComputePriceInstruction(instruction),
+      ).toThrow(
+        "invalid_exact_svm_payload_transaction_instructions_compute_price_instruction_too_high",
+      );
+    });
+
+    it("should accept price exactly at MAX_COMPUTE_UNIT_PRICE_MICROLAMPORTS", () => {
+      const facilitator = new ExactSvmSchemeV1(mockSigner);
+      const instruction = {
+        programAddress: COMPUTE_BUDGET_PROGRAM_ADDRESS,
+        data: makeComputePriceData(BigInt(MAX_COMPUTE_UNIT_PRICE_MICROLAMPORTS)),
+      };
+      expect(() =>
+        (
+          facilitator as unknown as { verifyComputePriceInstruction: (i: unknown) => void }
+        ).verifyComputePriceInstruction(instruction),
+      ).not.toThrow();
+    });
+
+    it("should accept price well below MAX_COMPUTE_UNIT_PRICE_MICROLAMPORTS", () => {
+      const facilitator = new ExactSvmSchemeV1(mockSigner);
+      const instruction = {
+        programAddress: COMPUTE_BUDGET_PROGRAM_ADDRESS,
+        data: makeComputePriceData(1n),
+      };
+      expect(() =>
+        (
+          facilitator as unknown as { verifyComputePriceInstruction: (i: unknown) => void }
+        ).verifyComputePriceInstruction(instruction),
+      ).not.toThrow();
     });
   });
 

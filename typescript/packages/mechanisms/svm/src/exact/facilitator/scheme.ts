@@ -491,10 +491,7 @@ export class ExactSvmScheme implements SchemeNetworkFacilitator {
       const parsedInstruction = parseSetComputeUnitPriceInstruction(instruction as never);
 
       // Check if price exceeds maximum (5 lamports per compute unit)
-      if (
-        (parsedInstruction as unknown as { microLamports: bigint }).microLamports >
-        BigInt(MAX_COMPUTE_UNIT_PRICE_MICROLAMPORTS)
-      ) {
+      if (parsedInstruction.data.microLamports > BigInt(MAX_COMPUTE_UNIT_PRICE_MICROLAMPORTS)) {
         throw new Error(
           "invalid_exact_svm_payload_transaction_instructions_compute_price_instruction_too_high",
         );
