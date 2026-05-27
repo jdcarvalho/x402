@@ -456,7 +456,10 @@ Returns the list of payment schemes, networks, and extensions supported by the f
     {
       "x402Version": 2,
       "scheme": "exact",
-      "network": "eip155:84532"
+      "network": "eip155:84532",
+      "capabilities": {
+        "assetTransferMethod": ["eip3009", "permit2"]
+      }
     },
     {
       "x402Version": 2,
@@ -494,10 +497,19 @@ Each `SupportedKind` object in the `kinds` array contains:
 
 | Field Name    | Type     | Required | Description                                                |
 | ------------- | -------- | -------- | ---------------------------------------------------------- |
-| `x402Version` | `number` | Required | Protocol version supported (2 for v2)                      |
-| `scheme`      | `string` | Required | Payment scheme identifier (e.g., "exact")                  |
-| `network`     | `string` | Required | Blockchain network identifier in CAIP-2 format             |
-| `extra`       | `object` | Optional | Additional scheme-specific configuration                   |
+| `x402Version`  | `number` | Required | Protocol version supported (2 for v2)                                                                             |
+| `scheme`       | `string` | Required | Payment scheme identifier (e.g., "exact")                                                                         |
+| `network`      | `string` | Required | Blockchain network identifier in CAIP-2 format                                                                    |
+| `extra`        | `object` | Optional | Additional scheme-specific configuration                                                                          |
+| `capabilities` | `object` | Optional | Discriminator-keyed capability constraints; see section 7.3.2. Absence implies full support for the scheme.       |
+
+**7.3.2 Capabilities**
+
+The optional `capabilities` object on a `SupportedKind` entry declares which discriminated variants of that scheme the facilitator supports on a given network. Each key in `capabilities` matches a discriminator field name in `PaymentRequirements.extra` for that scheme; each value is the array of accepted string values for that field.
+
+**Default behavior:** If `capabilities` is absent from a kind, the facilitator is assumed to support all variants the scheme defines. This is the backwards-compatible default for facilitators that predate this field.
+
+**Scheme obligation:** Scheme specifications that introduce discriminator fields in `PaymentRequirements.extra` must document the corresponding `capabilities` key and enumerate its valid values.
 
 **8. Discovery API**
 
