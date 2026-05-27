@@ -13,19 +13,11 @@ import { verifyPermit2, settlePermit2 } from "./permit2";
 
 export interface ExactEvmSchemeConfig {
   /**
-   * If enabled, the facilitator will deploy ERC-4337 smart wallets
-   * via EIP-6492 when encountering undeployed contract signatures.
-   *
-   * When true, eip6492AllowedFactories must be non-empty or all factory deployments are denied.
-   *
-   * @default false
-   */
-  deployERC4337WithEIP6492?: boolean;
-  /**
    * Allowlist of factory contract addresses (hex strings, case-insensitive) that the facilitator
    * will call when deploying an undeployed smart wallet via ERC-6492.
    *
-   * An empty or omitted list denies all factory calls even when deployERC4337WithEIP6492 is true.
+   * A non-empty list enables ERC-4337 smart wallet deployment via EIP-6492. An empty or omitted
+   * list denies all factory deployment calls (feature disabled by default).
    *
    * @default []
    */
@@ -60,7 +52,6 @@ export class ExactEvmScheme implements SchemeNetworkFacilitator {
     config?: ExactEvmSchemeConfig,
   ) {
     this.config = {
-      deployERC4337WithEIP6492: config?.deployERC4337WithEIP6492 ?? false,
       eip6492AllowedFactories: config?.eip6492AllowedFactories ?? [],
       simulateInSettle: config?.simulateInSettle ?? false,
     };

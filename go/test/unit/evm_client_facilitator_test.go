@@ -1249,7 +1249,7 @@ func TestExactEvmFacilitatorScheme(t *testing.T) {
 
 	t.Run("Creates scheme with config", func(t *testing.T) {
 		config := &evmfacilitator.ExactEvmSchemeConfig{
-			DeployERC4337WithEIP6492: true,
+			EIP6492AllowedFactories: []string{"0x1111111111111111111111111111111111111111"},
 		}
 		scheme := evmfacilitator.NewExactEvmScheme(signer, config)
 		if scheme == nil {

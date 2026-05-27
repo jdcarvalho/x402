@@ -94,9 +94,7 @@ func TestMCPEVMIntegration(t *testing.T) {
 		}
 
 		facilitator := x402.Newx402Facilitator()
-		evmConfig := &evmfacilitator.ExactEvmSchemeConfig{
-			DeployERC4337WithEIP6492: true,
-		}
+		evmConfig := &evmfacilitator.ExactEvmSchemeConfig{}
 		evmFacilitator := evmfacilitator.NewExactEvmScheme(facilitatorSigner, evmConfig)
 		facilitator.Register([]x402.Network{TEST_NETWORK}, evmFacilitator)
 

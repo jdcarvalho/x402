@@ -254,7 +254,6 @@ if evm_signer is not None:
         facilitator,
         evm_signer,
         networks=EVM_NETWORK,
-        deploy_erc4337_with_eip6492=False,
     )
 
     # Register upto EVM scheme (V2 only)

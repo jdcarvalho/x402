@@ -48,19 +48,14 @@ from ..utils import bytes_to_hex, get_evm_chain_id, hex_to_bytes, normalize_addr
 class ExactEvmSchemeConfig:
     """Configuration for ExactEvmScheme facilitator."""
 
-    deploy_erc4337_with_eip6492: bool = False
-    """Enable automatic smart wallet deployment via EIP-6492.
-
-    When True, eip6492_allowed_factories must be non-empty or all factory deployments are denied.
-    """
-
     eip6492_allowed_factories: list[str] = field(default_factory=list)
     """Allowlist of factory contract addresses (hex strings, case-insensitive).
 
-    The facilitator will only call factories on this list when deploying an undeployed smart wallet
-    via ERC-6492. An empty list denies all factory calls even when deploy_erc4337_with_eip6492 is
-    True. Facilitators must explicitly list every factory they trust to prevent arbitrary
-    transaction injection via attacker-controlled ERC-6492 signature wrappers.
+    A non-empty list enables ERC-4337 smart wallet deployment via EIP-6492. The facilitator will
+    only call factories on this list when deploying an undeployed smart wallet. An empty list
+    (the default) denies all factory deployment calls. Facilitators must explicitly list every
+    factory they trust to prevent arbitrary transaction injection via attacker-controlled ERC-6492
+    signature wrappers.
     """
 
     simulate_in_settle: bool = False
@@ -341,19 +336,10 @@ class ExactEvmScheme:
                 transaction="",
             )
 
-        # Deploy smart wallet if needed
+        # Deploy smart wallet if needed (allowlist is the sole gate)
         if has_deployment_info(sig_data):
             code = self._signer.get_code(payer)
             if len(code) == 0:
-                if not self._config.deploy_erc4337_with_eip6492:
-                    return SettleResponse(
-                        success=False,
-                        error_reason=ERR_UNDEPLOYED_SMART_WALLET,
-                        network=network,
-                        payer=payer,
-                        transaction="",
-                    )
-
                 factory_addr = bytes_to_hex(sig_data.factory)
                 allowed = [f.lower() for f in self._config.eip6492_allowed_factories]
                 if factory_addr.lower() not in allowed:

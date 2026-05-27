@@ -253,14 +253,16 @@ class TestExactEvmSchemeConstructor:
     def test_creates_instance_with_config(self):
         signer = MockFacilitatorSigner()
         config = ExactEvmSchemeConfig(
-            deploy_erc4337_with_eip6492=True,
+            eip6492_allowed_factories=["0x1111111111111111111111111111111111111111"],
             simulate_in_settle=True,
         )
 
         facilitator = ExactEvmFacilitatorScheme(signer, config)
 
         assert facilitator.scheme == "exact"
-        assert facilitator._config.deploy_erc4337_with_eip6492 is True
+        assert facilitator._config.eip6492_allowed_factories == [
+            "0x1111111111111111111111111111111111111111"
+        ]
         assert facilitator._config.simulate_in_settle is True
 
 
@@ -523,7 +525,6 @@ class TestSettleFactoryAllowlist:
         facilitator = ExactEvmFacilitatorScheme(
             signer,
             ExactEvmSchemeConfig(
-                deploy_erc4337_with_eip6492=True,
                 eip6492_allowed_factories=[],
             ),
         )
@@ -539,7 +540,6 @@ class TestSettleFactoryAllowlist:
         facilitator = ExactEvmFacilitatorScheme(
             signer,
             ExactEvmSchemeConfig(
-                deploy_erc4337_with_eip6492=True,
                 eip6492_allowed_factories=[FACTORY],
             ),
         )
@@ -555,7 +555,6 @@ class TestSettleFactoryAllowlist:
         facilitator = ExactEvmFacilitatorScheme(
             signer,
             ExactEvmSchemeConfig(
-                deploy_erc4337_with_eip6492=True,
                 eip6492_allowed_factories=[FACTORY.upper()],
             ),
         )
@@ -570,7 +569,6 @@ class TestSettleFactoryAllowlist:
         facilitator = ExactEvmFacilitatorScheme(
             signer,
             ExactEvmSchemeConfig(
-                deploy_erc4337_with_eip6492=True,
                 eip6492_allowed_factories=["0x3333333333333333333333333333333333333333"],
             ),
         )
@@ -587,7 +585,6 @@ class TestSettleFactoryAllowlist:
         facilitator = ExactEvmFacilitatorScheme(
             signer,
             ExactEvmSchemeConfig(
-                deploy_erc4337_with_eip6492=True,
                 eip6492_allowed_factories=[],  # empty — would block if deployment were attempted
             ),
         )
@@ -604,7 +601,6 @@ class TestSettleFactoryAllowlist:
         facilitator = ExactEvmFacilitatorScheme(
             signer,
             ExactEvmSchemeConfig(
-                deploy_erc4337_with_eip6492=True,
                 eip6492_allowed_factories=[],
             ),
         )

@@ -26,21 +26,13 @@ export interface VerifyV1Options {
 
 export interface ExactEvmSchemeV1Config {
   /**
-   * If enabled, the facilitator will deploy ERC-4337 smart wallets
-   * via EIP-6492 when encountering undeployed contract signatures.
-   *
-   * When true, eip6492AllowedFactories must be non-empty or all factory deployments are denied.
-   *
-   * @default false
-   */
-  deployERC4337WithEIP6492?: boolean;
-  /**
    * Allowlist of factory contract addresses (hex strings, case-insensitive) that the facilitator
    * will call when deploying an undeployed smart wallet via ERC-6492.
    *
-   * An empty or omitted list denies all factory calls even when deployERC4337WithEIP6492 is true.
-   * Facilitators must explicitly list every factory they trust to prevent arbitrary transaction
-   * injection via attacker-controlled ERC-6492 signature wrappers.
+   * A non-empty list enables ERC-4337 smart wallet deployment via EIP-6492. Facilitators must
+   * explicitly list every factory they trust to prevent arbitrary transaction injection via
+   * attacker-controlled ERC-6492 signature wrappers. An empty or omitted list denies all factory
+   * deployment calls.
    *
    * @default []
    */
@@ -72,7 +64,6 @@ export class ExactEvmSchemeV1 implements SchemeNetworkFacilitator {
     config?: ExactEvmSchemeV1Config,
   ) {
     this.config = {
-      deployERC4337WithEIP6492: config?.deployERC4337WithEIP6492 ?? false,
       eip6492AllowedFactories: config?.eip6492AllowedFactories ?? [],
       simulateInSettle: config?.simulateInSettle ?? false,
     };
@@ -148,9 +139,8 @@ export class ExactEvmSchemeV1 implements SchemeNetworkFacilitator {
         exactEvmPayload.signature!,
       );
 
-      // Deploy ERC-4337 smart wallet via EIP-6492 if configured and needed
+      // Deploy ERC-4337 smart wallet via EIP-6492 if factory is in the allowlist
       if (
-        this.config.deployERC4337WithEIP6492 &&
         factoryAddress &&
         factoryCalldata &&
         !isAddressEqual(factoryAddress, "0x0000000000000000000000000000000000000000")

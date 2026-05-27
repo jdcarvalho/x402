@@ -434,10 +434,7 @@ func TestEVMIntegrationV2(t *testing.T) {
 
 		// Setup facilitator with EVM v2 scheme
 		facilitator := x402.Newx402Facilitator()
-		// Enable smart wallet deployment via EIP-6492
-		evmConfig := &exactevmfacilitator.ExactEvmSchemeConfig{
-			DeployERC4337WithEIP6492: true,
-		}
+		evmConfig := &exactevmfacilitator.ExactEvmSchemeConfig{}
 		evmFacilitator := exactevmfacilitator.NewExactEvmScheme(facilitatorSigner, evmConfig)
 		// Register for Base Sepolia
 		facilitator.Register([]x402.Network{"eip155:84532"}, evmFacilitator)
@@ -617,9 +614,7 @@ func TestEVMIntegrationV2Permit2(t *testing.T) {
 
 		// Setup facilitator with EVM v2 scheme
 		facilitator := x402.Newx402Facilitator()
-		evmConfig := &exactevmfacilitator.ExactEvmSchemeConfig{
-			DeployERC4337WithEIP6492: true,
-		}
+		evmConfig := &exactevmfacilitator.ExactEvmSchemeConfig{}
 		evmFacilitator := exactevmfacilitator.NewExactEvmScheme(facilitatorSigner, evmConfig)
 		facilitator.Register([]x402.Network{"eip155:84532"}, evmFacilitator)
 

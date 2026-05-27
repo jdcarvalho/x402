@@ -866,9 +866,7 @@ func main() {
 	facilitator := x402.Newx402Facilitator()
 
 	// Register EVM schemes with dynamic network
-	evmConfig := &exactevm.ExactEvmSchemeConfig{
-		DeployERC4337WithEIP6492: false,
-	}
+	evmConfig := &exactevm.ExactEvmSchemeConfig{}
 	evmFacilitatorScheme := exactevm.NewExactEvmScheme(evmSigner, evmConfig)
 	facilitator.Register([]x402.Network{x402.Network(evmNetwork)}, evmFacilitatorScheme)
 
@@ -892,9 +890,7 @@ func main() {
 	batchedScheme := batchedevm.NewBatchSettlementEvmScheme(evmSigner, batchedAuthorizer)
 	facilitator.Register([]x402.Network{x402.Network(evmNetwork)}, batchedScheme)
 
-	evmV1Config := &exactevmv1.ExactEvmSchemeV1Config{
-		DeployERC4337WithEIP6492: false,
-	}
+	evmV1Config := &exactevmv1.ExactEvmSchemeV1Config{}
 	evmFacilitatorV1Scheme := exactevmv1.NewExactEvmSchemeV1(evmSigner, evmV1Config)
 	facilitator.RegisterV1([]x402.Network{x402.Network(getV1EvmNetwork(evmNetwork))}, evmFacilitatorV1Scheme)
 

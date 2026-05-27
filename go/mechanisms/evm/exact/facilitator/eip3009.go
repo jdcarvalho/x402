@@ -176,10 +176,6 @@ func (f *ExactEvmScheme) settleEIP3009(
 		}
 
 		if len(code) == 0 {
-			if !f.config.DeployERC4337WithEIP6492 {
-				return nil, x402.NewSettleError(ErrUndeployedSmartWallet, verifyResp.Payer, network, "", "")
-			}
-
 			if !IsFactoryAllowed(sigData.Factory, f.config.EIP6492AllowedFactories) {
 				return nil, x402.NewSettleError(ErrFactoryNotAllowed, verifyResp.Payer, network, "", "")
 			}
