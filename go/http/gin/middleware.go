@@ -311,6 +311,12 @@ func validateSingleBazaarExtension(pattern string, extensions map[string]interfa
 	if !ok || extVal == nil {
 		return
 	}
+	extMap, isMap := extVal.(map[string]interface{})
+	if !isMap || extMap["info"] == nil || extMap["schema"] == nil {
+		fmt.Printf("x402 Warning: Route %q declares a bazaar extension but it is malformed "+
+			"(expected an object with \"info\" and \"schema\" fields)\n", pattern)
+		return
+	}
 	extJSON, err := json.Marshal(extVal)
 	if err != nil {
 		return

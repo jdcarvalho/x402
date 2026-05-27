@@ -9,6 +9,8 @@ import type { RoutesConfig } from "@x402/core/server";
 import type { DiscoveryExtension } from "./types";
 import { validateDiscoveryExtension, validateDiscoveryExtensionSpec } from "./facilitator";
 
+export { checkIfBazaarNeeded } from "@x402/core/server";
+
 const HTTP_VERB_RE = /^(GET|POST|PUT|PATCH|DELETE|HEAD)\b/i;
 
 /**
@@ -40,22 +42,6 @@ function withSyntheticMethod(
 }
 
 /**
- * Check if any routes in the configuration declare bazaar extensions.
- *
- * @param routes - Route configuration
- * @returns True if any route has extensions.bazaar defined
- */
-export function checkIfBazaarNeeded(routes: RoutesConfig): boolean {
-  if ("accepts" in routes) {
-    return !!(routes.extensions && "bazaar" in routes.extensions);
-  }
-
-  return Object.values(routes).some(routeConfig => {
-    return !!(routeConfig.extensions && "bazaar" in routeConfig.extensions);
-  });
-}
-
-/**
  * Validate bazaar extensions on all routes using JSON-schema validation.
  * Emits console warnings for invalid extensions but does not throw.
  *
@@ -67,9 +53,10 @@ export function validateBazaarRouteExtensions(routes: RoutesConfig): void {
 
   for (const [pattern, config] of entries) {
     const bazaarExt = config.extensions?.["bazaar"];
+    if (!bazaarExt) continue;
     if (
-      bazaarExt &&
       typeof bazaarExt === "object" &&
+      bazaarExt !== null &&
       "info" in (bazaarExt as Record<string, unknown>) &&
       "schema" in (bazaarExt as Record<string, unknown>)
     ) {
@@ -89,6 +76,11 @@ export function validateBazaarRouteExtensions(routes: RoutesConfig): void {
           `x402: Route "${pattern}" has an invalid bazaar extension: ${schemaResult.errors?.join(", ")}`,
         );
       }
+    } else {
+      console.warn(
+        `x402: Route "${pattern}" declares a bazaar extension but it is malformed ` +
+          `(expected an object with "info" and "schema" fields)`,
+      );
     }
   }
 }

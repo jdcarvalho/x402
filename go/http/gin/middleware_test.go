@@ -1704,3 +1704,27 @@ func TestValidateBazaarExtensions_InvalidExtension(t *testing.T) {
 		t.Errorf("Expected 'bazaar' in warning output, got: %q", output)
 	}
 }
+
+func TestValidateBazaarExtensions_MalformedExtension(t *testing.T) {
+	routes := x402http.RoutesConfig{
+		"GET /api": {
+			Accepts: x402http.PaymentOptions{
+				{Scheme: "exact", PayTo: "0xtest", Price: "$1.00", Network: "eip155:8453"},
+			},
+			Extensions: map[string]interface{}{
+				"bazaar": "not-an-object",
+			},
+		},
+	}
+
+	output := captureStdout(func() {
+		validateBazaarExtensions(routes)
+	})
+
+	if !strings.Contains(output, "Warning") {
+		t.Errorf("Expected warning for malformed bazaar extension, got: %q", output)
+	}
+	if !strings.Contains(output, "malformed") {
+		t.Errorf("Expected 'malformed' in warning output, got: %q", output)
+	}
+}
