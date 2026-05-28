@@ -477,7 +477,7 @@ All three fields are optional. Servers that omit them produce byte-identical 402
 | `tags` | string[] | Up to 5 short topical tags (each ≤ 32 printable ASCII characters). Used for facilitator-side filtering and search. |
 | `iconUrl` | string | Absolute `https://` or `http://` URL to an icon image representing the service (≤ 2048 characters). |
 
-These fields are set on the `resource` object in your route configuration, alongside `description` and `mimeType`:
+These fields are set directly on your route configuration, alongside `description` and `mimeType`:
 
 <Tabs>
   <Tab title="TypeScript">
@@ -502,19 +502,15 @@ These fields are set on the `resource` object in your route configuration, along
   </Tab>
   <Tab title="Python">
     ```python
-    from x402.schemas.payments import ResourceInfo
-
     routes: dict[str, RouteConfig] = {
         "GET /weather": RouteConfig(
             accepts=[...],
-            resource=ResourceInfo(
-                url="https://api.example.com/weather",
-                description="Get real-time weather data",
-                mime_type="application/json",
-                service_name="Example Weather",
-                tags=["weather", "forecast"],
-                icon_url="https://api.example.com/icon.png",
-            ),
+            resource="https://api.example.com/weather",
+            description="Get real-time weather data",
+            mime_type="application/json",
+            service_name="Example Weather",
+            tags=["weather", "forecast"],
+            icon_url="https://api.example.com/icon.png",
             extensions={"bazaar": {...}},
         ),
     }

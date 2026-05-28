@@ -242,9 +242,9 @@ import (
 
 facilitator := x402.Newx402Facilitator()
 
-// Register EVM scheme with smart wallet deployment enabled
+// Register EVM scheme with smart wallet deployment support
 evmConfig := &evm.ExactEvmSchemeConfig{
-    DeployERC4337WithEIP6492: true,
+    EIP6492AllowedFactories: []string{ /* trusted factory addresses */ },
 }
 facilitator.Register([]x402.Network{"eip155:84532"}, evm.NewExactEvmScheme(evmSigner, evmConfig))
 

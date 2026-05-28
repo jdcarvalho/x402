@@ -245,9 +245,9 @@ import (
 
 facilitator := x402.Newx402Facilitator()
 
-// Register EVM scheme with smart wallet deployment enabled
+// Register EVM scheme with smart wallet deployment support
 evmConfig := &evm.ExactEvmSchemeConfig{
-    DeployERC4337WithEIP6492: true,
+    EIP6492AllowedFactories: []string{ /* trusted factory addresses */ },
 }
 facilitator.Register([]x402.Network{"eip155:84532"}, evm.NewExactEvmScheme(evmSigner, evmConfig))
 
@@ -295,6 +295,12 @@ if existing, found := store.Get(paymentID); found && existing.Status == "settled
     return existing.Transaction, nil
 }
 ```
+
+For production use, bind the payment ID to a normalized fingerprint of the
+settlement request, such as network, scheme, asset, amount, payer, payee, and
+the application operation ID when available. If the same payment ID is replayed
+with a different fingerprint, reject it with a conflict instead of returning a
+cached transaction or settling a different payment.
 
 **Use case:** Prevent duplicate settlements, provide exactly-once semantics, track payment lifecycle.
 

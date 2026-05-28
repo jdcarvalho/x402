@@ -36,7 +36,9 @@ func runGasExtensionsExample(evmPrivateKey string) error {
 	facilitator := x402.Newx402Facilitator()
 
 	evmConfig := &evm.ExactEvmSchemeConfig{
-		DeployERC4337WithEIP6492: true,
+		// Add trusted ERC-6492 factory addresses here (e.g. your chosen ERC-4337 smart wallet factory).
+		// A non-empty slice enables smart wallet deployment; an empty slice denies all factory calls.
+		EIP6492AllowedFactories: []string{},
 	}
 	facilitator.Register([]x402.Network{evmNetwork}, evm.NewExactEvmScheme(evmSigner, evmConfig))
 	facilitator.Register([]x402.Network{evmNetwork}, uptoevm.NewUptoEvmScheme(evmSigner, nil))

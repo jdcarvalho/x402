@@ -429,6 +429,18 @@ func HasEIP6492Deployment(sigData *evm.ERC6492SignatureData) bool {
 	return sigData.Factory != zeroFactory && len(sigData.FactoryCalldata) > 0
 }
 
+// IsFactoryAllowed reports whether factory is present in allowedFactories (case-insensitive).
+// An empty allowlist denies all factories, preventing unconstrained arbitrary call injection.
+func IsFactoryAllowed(factory [20]byte, allowedFactories []string) bool {
+	factoryHex := strings.ToLower(common.BytesToAddress(factory[:]).Hex())
+	for _, allowed := range allowedFactories {
+		if strings.ToLower(allowed) == factoryHex {
+			return true
+		}
+	}
+	return false
+}
+
 func mustNonce(nonce string) [32]byte {
 	nonceBytes, _ := evm.HexToBytes(nonce)
 	var nonceArray [32]byte

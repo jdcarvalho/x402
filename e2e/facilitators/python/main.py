@@ -42,6 +42,10 @@ from x402.mechanisms.evm.constants import TX_STATUS_SUCCESS
 from x402.mechanisms.evm.exact import register_exact_evm_facilitator
 from x402.mechanisms.evm.types import TransactionReceipt
 from x402.mechanisms.evm.upto import UptoEvmFacilitatorScheme
+from x402.mechanisms.evm.batch_settlement.authorizer_signer import LocalAuthorizerSigner
+from x402.mechanisms.evm.batch_settlement.facilitator import (
+    BatchSettlementEvmFacilitator,
+)
 from x402.mechanisms.svm import FacilitatorKeypairSigner
 from x402.mechanisms.svm.exact import register_exact_svm_facilitator
 from x402.mechanisms.tvm import (
@@ -250,11 +254,25 @@ if evm_signer is not None:
         facilitator,
         evm_signer,
         networks=EVM_NETWORK,
-        deploy_erc4337_with_eip6492=True,
     )
 
     # Register upto EVM scheme (V2 only)
     facilitator.register([EVM_NETWORK], UptoEvmFacilitatorScheme(evm_signer))
+
+    # Register batch-settlement EVM scheme (V2 only). Receiver-authorizer key
+    # falls back to the facilitator key, matching the TS e2e facilitator.
+    receiver_authorizer_pk = (
+        os.environ.get("EVM_RECEIVER_AUTHORIZER_PRIVATE_KEY")
+        or os.environ["EVM_PRIVATE_KEY"]
+    )
+    batch_settlement_authorizer = LocalAuthorizerSigner(receiver_authorizer_pk)
+    print(
+        f"EVM Receiver Authorizer (batch-settlement): {batch_settlement_authorizer.address}"
+    )
+    facilitator.register(
+        [EVM_NETWORK],
+        BatchSettlementEvmFacilitator(evm_signer, batch_settlement_authorizer),
+    )
 
 # Register SVM schemes (V1 and V2)
 if svm_signer is not None:
