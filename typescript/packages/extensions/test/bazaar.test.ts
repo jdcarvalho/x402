@@ -1094,6 +1094,64 @@ describe("Bazaar Discovery Extension", () => {
       expect((discovered!.discoveryInfo as BodyDiscoveryInfo).input.body).toHaveProperty(
         "type_hint",
       );
+      expect(discovered!.extensions?.[BAZAAR.key]).toBeDefined();
+      expect(discovered!.extensions?.outputSchema).toBeUndefined();
+      expect(discovered!.extensions?.[BAZAAR.key]).toEqual({
+        info: discovered!.discoveryInfo,
+        schema: expect.objectContaining({
+          type: "object",
+          required: ["input"],
+        }),
+      });
+      expect(
+        validateDiscoveryExtension(discovered!.extensions?.[BAZAAR.key] as DiscoveryExtension)
+          .valid,
+      ).toBe(true);
+    });
+
+    it("should map v1 outputSchema payload extensions to bazaar format", () => {
+      const v1Requirements = {
+        scheme: "exact",
+        network: "eip155:8453" as unknown,
+        maxAmountRequired: "10000",
+        resource: "https://api.example.com/jwt-verify",
+        description: "Verify JWT",
+        mimeType: "application/json",
+        outputSchema: {
+          input: {
+            discoverable: true,
+            method: "GET",
+            queryParams: { token: "JWT token string" },
+            type: "http",
+          },
+          output: { type: "object", properties: { header: { type: "object" } } },
+        },
+        payTo: "0x1234567890123456789012345678901234567890",
+        maxTimeoutSeconds: 60,
+        asset: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+        extra: {},
+      };
+
+      const payloadExtensions = { outputSchema: v1Requirements.outputSchema };
+      const v1Payload = {
+        x402Version: 1,
+        scheme: "exact",
+        network: "eip155:8453" as unknown,
+        payload: {},
+        extensions: payloadExtensions,
+      };
+
+      const discovered = extractDiscoveryInfo(v1Payload as unknown, v1Requirements as unknown);
+
+      expect(discovered).not.toBeNull();
+      expect(discovered!.extensions?.outputSchema).toBeUndefined();
+      expect(discovered!.extensions?.[BAZAAR.key]).toEqual({
+        info: discovered!.discoveryInfo,
+        schema: expect.objectContaining({
+          type: "object",
+          required: ["input"],
+        }),
+      });
     });
 
     it("should handle unified extraction for both v1 and v2", () => {
