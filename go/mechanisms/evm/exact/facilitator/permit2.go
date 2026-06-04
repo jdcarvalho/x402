@@ -3,6 +3,7 @@ package facilitator
 import (
 	"context"
 	"errors"
+	"fmt"
 	"math/big"
 	"strings"
 	"time"
@@ -55,6 +56,12 @@ func VerifyPermit2(
 	}
 
 	tokenAddress := evm.NormalizeAddress(requirements.Asset)
+
+	if errReason, err := evm.ValidateAssetIsContract(ctx, signer, requirements.Asset); err != nil {
+		return nil, fmt.Errorf("asset contract check failed: %w", err)
+	} else if errReason != "" {
+		return nil, x402.NewVerifyError(errReason, payer, fmt.Sprintf("asset %s is not a deployed contract", requirements.Asset))
+	}
 
 	// Verify spender is x402ExactPermit2Proxy
 	if !strings.EqualFold(permit2Payload.Permit2Authorization.Spender, evm.X402ExactPermit2ProxyAddress) {

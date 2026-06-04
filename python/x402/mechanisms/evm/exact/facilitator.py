@@ -12,6 +12,7 @@ from ....schemas import (
     VerifyResponse,
 )
 from ..constants import (
+    ERR_ASSET_NOT_DEPLOYED_CONTRACT,
     ERR_AUTHORIZATION_VALUE_MISMATCH,
     ERR_FACTORY_NOT_ALLOWED,
     ERR_FAILED_TO_GET_NETWORK_CONFIG,
@@ -171,6 +172,12 @@ class ExactEvmScheme:
             )
 
         token_address = normalize_address(requirements.asset)
+
+        code = self._signer.get_code(token_address)
+        if len(code) == 0:
+            return VerifyResponse(
+                is_valid=False, invalid_reason=ERR_ASSET_NOT_DEPLOYED_CONTRACT, payer=payer
+            )
 
         # Check EIP-712 domain params
         extra = requirements.extra or {}

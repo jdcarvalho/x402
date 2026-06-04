@@ -20,6 +20,17 @@ vi.mock("viem", async importOriginal => {
   };
 });
 
+// Returns deployed-contract bytecode for the token/asset address, EOA ("0x") for everything else.
+// Used in ERC-6492 tests where the payer wallet is undeployed but the token contract must exist.
+const mockGetCodeEOAPayer =
+  (assetAddress: string) =>
+  ({ address }: { address: `0x${string}` }): Promise<`0x${string}`> =>
+    Promise.resolve(
+      address.toLowerCase() === assetAddress.toLowerCase()
+        ? ("0x6080604052" as `0x${string}`)
+        : ("0x" as `0x${string}`),
+    );
+
 describe("ExactEvmScheme (Facilitator)", () => {
   let facilitator: ExactEvmScheme;
   let mockFacilitatorSigner: FacilitatorEvmSigner;
@@ -43,7 +54,9 @@ describe("ExactEvmScheme (Facilitator)", () => {
       writeContract: vi.fn().mockResolvedValue("0xtxhash"),
       sendTransaction: vi.fn().mockResolvedValue("0xtxhash"),
       waitForTransactionReceipt: vi.fn().mockResolvedValue({ status: "success" }),
-      getCode: vi.fn().mockResolvedValue("0x"),
+      // Default: asset is a deployed contract. Individual tests that need an EOA payer
+      // should use mockGetCodeEOAPayer() to keep the asset as a contract.
+      getCode: vi.fn().mockResolvedValue("0x6080604052"),
     };
     facilitator = new ExactEvmScheme(mockFacilitatorSigner);
   });
@@ -553,8 +566,11 @@ describe("ExactEvmScheme (Facilitator)", () => {
         extra: { name: "USDC", version: "2", assetTransferMethod: "permit2" },
       };
 
-      // Signature verification fails
+      // Signature verification fails; payer is an EOA so no ERC-1271 fallback.
       mockFacilitatorSigner.verifyTypedData = vi.fn().mockResolvedValue(false);
+      mockFacilitatorSigner.getCode = vi
+        .fn()
+        .mockImplementation(mockGetCodeEOAPayer("0x036CbD53842c5426634e7929541eC2318f3dCF7e"));
 
       const permit2Payload: PaymentPayload = {
         x402Version: 2,
@@ -863,7 +879,9 @@ describe("ExactEvmScheme (Facilitator)", () => {
 
     it("should accept ERC-6492 when verifyTypedData returns true and simulation passes", async () => {
       mockFacilitatorSigner.verifyTypedData = vi.fn().mockResolvedValue(true);
-      mockFacilitatorSigner.getCode = vi.fn().mockResolvedValue("0x");
+      mockFacilitatorSigner.getCode = vi
+        .fn()
+        .mockImplementation(mockGetCodeEOAPayer("0x036CbD53842c5426634e7929541eC2318f3dCF7e"));
       mockFacilitatorSigner.readContract = vi
         .fn()
         .mockImplementation(({ address }: { address: string }) => {
@@ -884,7 +902,9 @@ describe("ExactEvmScheme (Facilitator)", () => {
 
     it("should accept ERC-6492 when verifyTypedData fails but simulation passes (EOA-only signer)", async () => {
       mockFacilitatorSigner.verifyTypedData = vi.fn().mockResolvedValue(false);
-      mockFacilitatorSigner.getCode = vi.fn().mockResolvedValue("0x");
+      mockFacilitatorSigner.getCode = vi
+        .fn()
+        .mockImplementation(mockGetCodeEOAPayer("0x036CbD53842c5426634e7929541eC2318f3dCF7e"));
       mockFacilitatorSigner.readContract = vi
         .fn()
         .mockImplementation(({ address }: { address: string }) => {
@@ -907,7 +927,9 @@ describe("ExactEvmScheme (Facilitator)", () => {
       mockFacilitatorSigner.verifyTypedData = vi
         .fn()
         .mockRejectedValue(new Error("invalid signature length"));
-      mockFacilitatorSigner.getCode = vi.fn().mockResolvedValue("0x");
+      mockFacilitatorSigner.getCode = vi
+        .fn()
+        .mockImplementation(mockGetCodeEOAPayer("0x036CbD53842c5426634e7929541eC2318f3dCF7e"));
       mockFacilitatorSigner.readContract = vi
         .fn()
         .mockImplementation(({ address }: { address: string }) => {
@@ -928,7 +950,9 @@ describe("ExactEvmScheme (Facilitator)", () => {
 
     it("should reject ERC-6492 when simulation fails (multicall transfer reverts)", async () => {
       mockFacilitatorSigner.verifyTypedData = vi.fn().mockResolvedValue(true);
-      mockFacilitatorSigner.getCode = vi.fn().mockResolvedValue("0x");
+      mockFacilitatorSigner.getCode = vi
+        .fn()
+        .mockImplementation(mockGetCodeEOAPayer("0x036CbD53842c5426634e7929541eC2318f3dCF7e"));
       mockFacilitatorSigner.readContract = vi
         .fn()
         .mockImplementation(({ address }: { address: string }) => {
@@ -959,7 +983,9 @@ describe("ExactEvmScheme (Facilitator)", () => {
 
     it("should reject forged ERC-6492 when verifyTypedData fails and simulation fails", async () => {
       mockFacilitatorSigner.verifyTypedData = vi.fn().mockResolvedValue(false);
-      mockFacilitatorSigner.getCode = vi.fn().mockResolvedValue("0x");
+      mockFacilitatorSigner.getCode = vi
+        .fn()
+        .mockImplementation(mockGetCodeEOAPayer("0x036CbD53842c5426634e7929541eC2318f3dCF7e"));
       mockFacilitatorSigner.readContract = vi
         .fn()
         .mockImplementation(({ address }: { address: string }) => {
@@ -992,7 +1018,9 @@ describe("ExactEvmScheme (Facilitator)", () => {
     it("should reject undeployed smart wallet without ERC-6492 deployment info", async () => {
       const longNonERC6492Sig = ("0x" + "ab".repeat(100)) as `0x${string}`;
       mockFacilitatorSigner.verifyTypedData = vi.fn().mockResolvedValue(false);
-      mockFacilitatorSigner.getCode = vi.fn().mockResolvedValue("0x");
+      mockFacilitatorSigner.getCode = vi
+        .fn()
+        .mockImplementation(mockGetCodeEOAPayer("0x036CbD53842c5426634e7929541eC2318f3dCF7e"));
 
       const result = await facilitator.verify(
         makeERC6492Payload(longNonERC6492Sig),

@@ -97,6 +97,14 @@ export async function verifyEIP3009(
     };
   }
 
+  // Reject payments whose asset is an EOA — eth_call on an EOA silently returns
+  // empty data without reverting, so simulation would pass but no Transfer event
+  // would be emitted, producing a silent no-op settlement.
+  const assetBytecode = await signer.getCode({ address: erc20Address });
+  if (!assetBytecode || assetBytecode === "0x") {
+    return { isValid: false, invalidReason: Errors.ErrAssetNotDeployedContract, payer };
+  }
+
   // Build typed data for signature verification
   const permitTypedData = {
     types: authorizationTypes,
