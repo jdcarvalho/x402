@@ -442,6 +442,18 @@ NETWORK_CONFIGS: dict[str, NetworkConfig] = {
             "decimals": 6,
         },
     },
+    # Mezo Mainnet (uses Permit2 instead of EIP-3009, supports EIP-2612)
+    "eip155:31612": {
+        "chain_id": 31612,
+        "default_asset": {
+            "address": "0xdD468A1DDc392dcdbEf6db6e34E89AA338F9F186",
+            "name": "Mezo USD",
+            "version": "1",
+            "decimals": 18,
+            "asset_transfer_method": "permit2",
+            "supports_eip2612": True,
+        },
+    },
     # Mezo Testnet (uses Permit2 instead of EIP-3009, supports EIP-2612)
     "eip155:31611": {
         "chain_id": 31611,

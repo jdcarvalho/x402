@@ -74,6 +74,7 @@ var (
 	ChainIDBaseSepolia   = big.NewInt(84532)
 	ChainIDMegaETH       = big.NewInt(4326)
 	ChainIDMonad         = big.NewInt(143)
+	ChainIDMezo          = big.NewInt(31612)
 	ChainIDMezoTestnet   = big.NewInt(31611)
 	ChainIDStable        = big.NewInt(988)
 	ChainIDStableTestnet = big.NewInt(2201)
@@ -138,6 +139,18 @@ var (
 				Name:     "USD Coin",
 				Version:  "2",
 				Decimals: DefaultDecimals,
+			},
+		},
+		// Mezo Mainnet (uses Permit2 instead of EIP-3009, supports EIP-2612)
+		"eip155:31612": {
+			ChainID: ChainIDMezo,
+			DefaultAsset: AssetInfo{
+				Address:             "0xdD468A1DDc392dcdbEf6db6e34E89AA338F9F186", // mUSD on Mezo
+				Name:                "Mezo USD",
+				Version:             "1",
+				Decimals:            18,
+				AssetTransferMethod: AssetTransferMethodPermit2,
+				SupportsEip2612:     true,
 			},
 		},
 		// Mezo Testnet (uses Permit2 instead of EIP-3009, supports EIP-2612)
