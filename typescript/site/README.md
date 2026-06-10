@@ -44,6 +44,14 @@ x402 is an open protocol for internet-native payments built around the HTTP 402 
   FACILITATOR_AVM_PRIVATE_KEY=your_algorand_private_key
   ```
 
+  Optionally enable Hedera (registers `hedera:testnet` only when both are set):
+
+  ```bash
+  # FACILITATOR_HEDERA_PRIVATE_KEY must be an ECDSA (secp256k1) key
+  FACILITATOR_HEDERA_ACCOUNT_ID=0.0.xxxx
+  FACILITATOR_HEDERA_PRIVATE_KEY=your_hedera_ecdsa_private_key
+  ```
+
 ### Running the Development Server
 
 ```bash

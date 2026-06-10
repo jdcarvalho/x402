@@ -15,6 +15,14 @@ import {
   createErc20ApprovalGasSponsoringExtension,
 } from "@x402/extensions";
 import { BuilderCodeFacilitatorExtension } from "@x402/extensions/builder-code";
+import {
+  PrivateKey as HederaPrivateKey,
+  createHederaClient,
+  createHederaPreflightTransfer,
+  createHederaSignAndSubmitTransaction,
+  toFacilitatorHederaSigner,
+} from "@x402/hedera";
+import { ExactHederaScheme } from "@x402/hedera/exact/facilitator";
 import { createEd25519Signer } from "@x402/stellar";
 import { ExactStellarScheme } from "@x402/stellar/exact/facilitator";
 import { toFacilitatorSvmSigner } from "@x402/svm";
@@ -27,7 +35,7 @@ import { privateKeyToAccount } from "viem/accounts";
 import { baseSepolia } from "viem/chains";
 
 /**
- * Initialize and configure the x402 facilitator with EVM, SVM, AVM, Aptos, and Stellar support
+ * Initialize and configure the x402 facilitator with EVM, SVM, AVM, Aptos, Stellar, and Hedera support
  * This is called lazily on first use to support Next.js module loading
  *
  * @returns A configured x402Facilitator instance
@@ -167,6 +175,30 @@ async function createFacilitator(): Promise<x402Facilitator> {
     facilitator.register(
       "stellar:testnet",
       new ExactStellarScheme(stellarSigners, { feeBumpSigner }),
+    );
+  }
+
+  // Optionally register Hedera if configured
+  if (process.env.FACILITATOR_HEDERA_PRIVATE_KEY && process.env.FACILITATOR_HEDERA_ACCOUNT_ID) {
+    // Facilitator fee-payer key is expected to be an ECDSA (secp256k1) key.
+    const hederaFeePayerKey = HederaPrivateKey.fromStringECDSA(
+      process.env.FACILITATOR_HEDERA_PRIVATE_KEY,
+    );
+    const hederaFeePayer = process.env.FACILITATOR_HEDERA_ACCOUNT_ID;
+    const buildHederaClient = (network: string) => createHederaClient(network);
+
+    const hederaSigner = toFacilitatorHederaSigner({
+      getAddresses: () => [hederaFeePayer],
+      signAndSubmitTransaction: createHederaSignAndSubmitTransaction(
+        buildHederaClient,
+        hederaFeePayerKey,
+      ),
+      preflightTransfer: createHederaPreflightTransfer(buildHederaClient),
+    });
+
+    facilitator.register(
+      "hedera:testnet",
+      new ExactHederaScheme(hederaSigner, { aliasPolicy: "reject" }),
     );
   }
 
