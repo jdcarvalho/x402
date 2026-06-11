@@ -1,4 +1,4 @@
-import { config } from 'dotenv';
+import 'dotenv/config';
 import { spawn, execSync, ChildProcess } from 'child_process';
 import { writeFileSync } from 'fs';
 import { join } from 'path';
@@ -15,9 +15,10 @@ import { filterScenarios, TestFilters, shouldShowExtensionOutput } from './src/c
 import { minimizeScenarios } from './src/sampling';
 import { getNetworkSet, NetworkMode, getNetworkModeDescription, resolveEvmPermit2Asset } from './src/networks/networks';
 import { GenericServerProxy } from './src/servers/generic-server';
-import { Semaphore, FacilitatorLock } from './src/concurrency';
+import { Semaphore, ResourceLock } from './src/concurrency';
 import { FacilitatorManager } from './src/facilitators/facilitator-manager';
 import { waitForHealth } from './src/health';
+import { createPortAllocator } from './src/ports';
 
 /**
  * Generates a fresh 32-byte hex salt for a batch-settlement test scenario so
@@ -242,6 +243,47 @@ function getEvmClients() {
   return { publicClient, facilitatorWallet, clientWallet, facilitatorAccount, clientAccount };
 }
 
+type EvmResourceKeyContext = {
+  evmCaip2: string;
+  evmPermit2Asset: string | undefined;
+  clientEvmAddress: string | undefined;
+  facilitatorEvmAddress: string | undefined;
+};
+
+/**
+ * Derive shared-resource lock keys for a scenario. Scenarios without shared
+ * mutable state return an empty list and stay fully parallel.
+ */
+function getScenarioResourceKeys(
+  scenario: TestScenario,
+  ctx: EvmResourceKeyContext,
+): string[] {
+  if (scenario.protocolFamily !== 'evm') {
+    return [];
+  }
+
+  const facilitatorAddress = ctx.facilitatorEvmAddress;
+  if (!facilitatorAddress) {
+    return [];
+  }
+
+  const keys: string[] = [
+    `evm:${ctx.evmCaip2}:facilitator:${facilitatorAddress.toLowerCase()}`,
+  ];
+
+  const touchesClientPermit2State =
+    scenario.endpoint.schemeOptions?.permit2Direct === true ||
+    scenario.endpoint.schemeOptions?.coldstart === true;
+
+  if (touchesClientPermit2State && ctx.clientEvmAddress && ctx.evmPermit2Asset) {
+    keys.push(
+      `evm:${ctx.evmCaip2}:client:${ctx.clientEvmAddress.toLowerCase()}:permit2:${ctx.evmPermit2Asset.toLowerCase()}`,
+    );
+  }
+
+  return keys;
+}
+
 const REVOKE_FUND_AMOUNT = parseEther('0.001');
 
 /**
@@ -357,9 +399,6 @@ async function drainClientETH(): Promise<boolean> {
   }
 }
 
-// Load environment variables
-config();
-
 // Parse command line arguments
 const parsedArgs = parseArgs();
 
@@ -394,6 +433,28 @@ function isOffchainSettleResponse(paymentResponse: any): boolean {
   return isBatchSettlement;
 }
 
+function maskSecret(value: string): string {
+  if (value.length <= 10) return '[redacted]';
+  return `${value.slice(0, 6)}…${value.slice(-4)}`;
+}
+
+function maskPrivateKeys<T>(value: T): T {
+  if (Array.isArray(value)) {
+    return value.map(maskPrivateKeys) as T;
+  }
+  if (value && typeof value === 'object') {
+    const masked: Record<string, unknown> = {};
+    for (const [key, entry] of Object.entries(value)) {
+      masked[key] =
+        /privateKey/i.test(key) && typeof entry === 'string' && entry.length > 0
+          ? maskSecret(entry)
+          : maskPrivateKeys(entry);
+    }
+    return masked as T;
+  }
+  return value;
+}
+
 async function runClientTest(
   client: any,
   callConfig: ClientConfig
@@ -405,7 +466,7 @@ async function runClientTest(
   };
 
   try {
-    bufferLog(`  📞 Running client: ${JSON.stringify(callConfig, null, 2)}`);
+    bufferLog(`  📞 Running client: ${JSON.stringify(maskPrivateKeys(callConfig), null, 2)}`);
     const result = await client.call(callConfig);
     bufferLog(`  📊 Client result: ${JSON.stringify(result, null, 2)}`);
     // Check if the client execution succeeded
@@ -557,6 +618,8 @@ async function runTest() {
   // Initialize logger
   loggerConfig({ logFile: parsedArgs.logFile, verbose: parsedArgs.verbose });
 
+  const startTime = Date.now();
+
   log('🚀 Starting X402 E2E Test Suite');
   log('===============================');
 
@@ -585,11 +648,6 @@ async function runTest() {
   const facilitatorStellarPrivateKey = process.env.FACILITATOR_STELLAR_PRIVATE_KEY;
   const facilitatorTvmPrivateKey = process.env.FACILITATOR_TVM_PRIVATE_KEY;
   const batchSettlementRecovery = envFlagDefaultTrue(process.env.BATCH_SETTLEMENT_RECOVERY);
-  if (!serverEvmAddress || !serverSvmAddress || !clientEvmPrivateKey || !clientSvmPrivateKey || !facilitatorEvmPrivateKey || !facilitatorSvmPrivateKey) {
-    errorLog('❌ Missing required environment variables:');
-    errorLog(' SERVER_EVM_ADDRESS, SERVER_SVM_ADDRESS, CLIENT_EVM_PRIVATE_KEY, CLIENT_SVM_PRIVATE_KEY, FACILITATOR_EVM_PRIVATE_KEY, and FACILITATOR_SVM_PRIVATE_KEY must be set');
-    process.exit(1);
-  }
 
   // Discover all servers, clients, and facilitators (always include legacy)
   const discovery = new TestDiscovery('.', true); // Always discover legacy
@@ -702,6 +760,18 @@ async function runTest() {
       ['SERVER_APTOS_ADDRESS', serverAptosAddress],
       ['CLIENT_APTOS_PRIVATE_KEY', clientAptosPrivateKey],
       ['FACILITATOR_APTOS_PRIVATE_KEY', facilitatorAptosPrivateKey],
+    ],
+    avm: [
+      ['SERVER_AVM_ADDRESS', serverAvmAddress],
+      ['CLIENT_AVM_PRIVATE_KEY', clientAvmPrivateKey],
+      ['FACILITATOR_AVM_PRIVATE_KEY', facilitatorAvmPrivateKey],
+    ],
+    hedera: [
+      ['SERVER_HEDERA_ADDRESS', serverHederaAddress],
+      ['CLIENT_HEDERA_ACCOUNT_ID', clientHederaAccountId],
+      ['CLIENT_HEDERA_PRIVATE_KEY', clientHederaPrivateKey],
+      ['FACILITATOR_HEDERA_ACCOUNT_ID', facilitatorHederaAccountId],
+      ['FACILITATOR_HEDERA_PRIVATE_KEY', facilitatorHederaPrivateKey],
     ],
     stellar: [
       ['SERVER_STELLAR_ADDRESS', serverStellarAddress],
@@ -965,7 +1035,7 @@ async function runTest() {
   }
 
   let testResults: DetailedTestResult[] = [];
-  let currentPort = 4022;
+  const allocatePort = createPortAllocator(4022);
 
   // Assign ports and start all facilitators
   const facilitatorManagers = new Map<string, FacilitatorManager>();
@@ -1003,14 +1073,14 @@ async function runTest() {
       facilitatorName: firstScenario.facilitator?.name,
       scenarios,
       comboIndex,
-      port: currentPort++,
+      port: allocatePort(),
     });
     comboIndex++;
   }
 
   // Start all facilitators with unique ports
   for (const [facilitatorName, facilitator] of uniqueFacilitators) {
-    const port = currentPort++;
+    const port = allocatePort();
     log(`\n🏛️ Starting facilitator: ${facilitatorName} on port ${port}`);
 
     const manager = new FacilitatorManager(
@@ -1037,7 +1107,7 @@ async function runTest() {
 
   // Start mock facilitator (claims to support everything, used as fallback so
   // servers with routes unsupported by the real facilitator can still start)
-  const mockFacilitatorPort = currentPort++;
+  const mockFacilitatorPort = allocatePort();
   log(`\n🎭 Starting mock facilitator on port ${mockFacilitatorPort}...`);
   const mockFacilitatorProcess: ChildProcess = spawn(
     'npx', ['tsx', 'index.ts'],
@@ -1325,7 +1395,8 @@ async function runTest() {
   // ── Execute a single server+facilitator combo ─────────────────────────
   async function executeCombo(
     combo: ServerFacilitatorCombo,
-    evmLock: FacilitatorLock | null,
+    resourceLock: ResourceLock | null,
+    evmResourceKeyContext: EvmResourceKeyContext,
     nextTestNumber: () => number,
   ): Promise<DetailedTestResult[]> {
     const { serverName, facilitatorName, scenarios, port } = combo;
@@ -1412,50 +1483,68 @@ async function runTest() {
       for (const scenario of scenarios) {
         const tn = nextTestNumber();
         const isEvm = scenario.protocolFamily === 'evm';
-
-        if (scenario.client.name === 'svm-smart-wallet') {
-          await setupSwigWallet(networks.svm.rpcUrl);
-        }
-
-        if (scenario.endpoint.schemeOptions?.permit2Direct === true) {
-          await approvePermit2Approval(evmPermit2Asset);
-        } else if (scenario.endpoint.schemeOptions?.coldstart === true) {
-          // Key on (client, path) so each client independently runs its own
-          // fund → revoke → drain cycle. Without the client name, the second
-          // client in a combo silently skips the coldstart and inherits
-          // whatever wallet state the first client left behind.
-          const endpointKey = `${scenario.client.name}::${scenario.endpoint.path}`;
-          if (!coldStartedEndpoints.has(endpointKey)) {
-            coldStartedEndpoints.add(endpointKey);
-            await fundClientForRevoke();
-            // Give fund tx 1s to propagate before submitting revoke (from client wallet)
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            await revokePermit2Approval(evmPermit2Asset);
-            // Give revoke tx 2s to propagate before drain reads pending nonce.
-            // Load-balanced RPCs can return a stale pending nonce if queried
-            // immediately after the revoke submission, causing the drain to
-            // collide with the revoke's nonce ("replacement transaction underpriced").
-            await new Promise(resolve => setTimeout(resolve, 2000));
-            await drainClientETH();
-            // Wait for RPC nonce propagation across load-balanced nodes before the
-            // test client (which may use a separate RPC connection) queries the nonce.
-            await new Promise(resolve => setTimeout(resolve, 1500));
-          }
-        }
-
         const isAvm = scenario.protocolFamily === 'avm';
+        const resourceKeys = getScenarioResourceKeys(scenario, evmResourceKeyContext);
 
-        if (isEvm && facilitatorName && evmLock) {
-          const releaseLock = await evmLock.acquire(facilitatorName);
-          try {
-            results.push(await runSingleTest(scenario, port, tn, cLog));
-            await new Promise(resolve => setTimeout(resolve, 1000));
-          } finally {
-            releaseLock();
+        const runScenario = async (): Promise<DetailedTestResult> => {
+          const setupFailure = (error: string): DetailedTestResult => ({
+            testNumber: tn,
+            client: scenario.client.name,
+            server: scenario.server.name,
+            endpoint: scenario.endpoint.path,
+            facilitator: scenario.facilitator?.name || 'none',
+            protocolFamily: scenario.protocolFamily,
+            passed: false,
+            error,
+          });
+
+          if (scenario.client.name === 'svm-smart-wallet') {
+            await setupSwigWallet(networks.svm.rpcUrl);
           }
-        } else {
-          results.push(await runSingleTest(scenario, port, tn, cLog));
-          if (isAvm) {
+
+          if (scenario.endpoint.schemeOptions?.permit2Direct === true) {
+            const approved = await approvePermit2Approval(evmPermit2Asset);
+            if (!approved) {
+              return setupFailure('Permit2 approval setup failed');
+            }
+          } else if (scenario.endpoint.schemeOptions?.coldstart === true) {
+            // Key on (client, path) so each client independently runs its own
+            // fund → revoke → drain cycle. Without the client name, the second
+            // client in a combo silently skips the coldstart and inherits
+            // whatever wallet state the first client left behind.
+            const endpointKey = `${scenario.client.name}::${scenario.endpoint.path}`;
+            if (!coldStartedEndpoints.has(endpointKey)) {
+              const funded = await fundClientForRevoke();
+              if (!funded) {
+                return setupFailure('Client gas funding setup failed');
+              }
+              // Give fund tx 1s to propagate before submitting revoke (from client wallet)
+              await new Promise(resolve => setTimeout(resolve, 1000));
+              const revoked = await revokePermit2Approval(evmPermit2Asset);
+              if (!revoked) {
+                return setupFailure('Permit2 revoke setup failed');
+              }
+              // Give revoke tx 2s to propagate before drain reads pending nonce.
+              // Load-balanced RPCs can return a stale pending nonce if queried
+              // immediately after the revoke submission, causing the drain to
+              // collide with the revoke's nonce ("replacement transaction underpriced").
+              await new Promise(resolve => setTimeout(resolve, 2000));
+              const drained = await drainClientETH();
+              if (!drained) {
+                return setupFailure('Client ETH drain setup failed');
+              }
+              coldStartedEndpoints.add(endpointKey);
+              // Wait for RPC nonce propagation across load-balanced nodes before the
+              // test client (which may use a separate RPC connection) queries the nonce.
+              await new Promise(resolve => setTimeout(resolve, 1500));
+            }
+          }
+
+          const result = await runSingleTest(scenario, port, tn, cLog);
+
+          if (isEvm && resourceLock) {
+            await new Promise(resolve => setTimeout(resolve, 1000));
+          } else if (isAvm) {
             // Pause between AVM tests to avoid 403 rate limiting on free public Algorand nodes
             await new Promise(resolve => setTimeout(resolve, 8000));
           } else if (isEvm) {
@@ -1465,6 +1554,19 @@ async function runTest() {
             // the two can collide on the same nonce on load-balanced RPCs.
             await new Promise(resolve => setTimeout(resolve, 1500));
           }
+
+          return result;
+        };
+
+        if (resourceKeys.length > 0 && resourceLock) {
+          const releaseLock = await resourceLock.acquireAll(resourceKeys);
+          try {
+            results.push(await runScenario());
+          } finally {
+            releaseLock();
+          }
+        } else {
+          results.push(await runScenario());
         }
       }
     } finally {
@@ -1477,7 +1579,19 @@ async function runTest() {
 
   // ── Unified execution: concurrency=1 for sequential, N for parallel ──
   const effectiveConcurrency = parsedArgs.parallel ? parsedArgs.concurrency : 1;
-  const evmLock = parsedArgs.parallel ? new FacilitatorLock() : null;
+  const resourceLock = parsedArgs.parallel ? new ResourceLock() : null;
+  const clientEvmAddress = clientEvmPrivateKey
+    ? privateKeyToAccount(clientEvmPrivateKey as `0x${string}`).address
+    : undefined;
+  const facilitatorEvmAddress = facilitatorEvmPrivateKey
+    ? privateKeyToAccount(facilitatorEvmPrivateKey as `0x${string}`).address
+    : undefined;
+  const evmResourceKeyContext: EvmResourceKeyContext = {
+    evmCaip2: networks.evm.caip2,
+    evmPermit2Asset,
+    clientEvmAddress,
+    facilitatorEvmAddress,
+  };
   const semaphore = new Semaphore(effectiveConcurrency);
 
   let globalTestNumber = 0;
@@ -1486,7 +1600,7 @@ async function runTest() {
   const comboPromises = serverFacilitatorCombos.map(async (combo) => {
     const release = await semaphore.acquire();
     try {
-      return await executeCombo(combo, evmLock, nextTestNumber);
+      return await executeCombo(combo, resourceLock, evmResourceKeyContext, nextTestNumber);
     } finally {
       release();
     }
@@ -1570,6 +1684,7 @@ async function runTest() {
   log(`✅ Passed: ${passed}`);
   log(`❌ Failed: ${failed}`);
   log(`📈 Total: ${passed + failed}`);
+  log(`⏱️  Duration: ${((Date.now() - startTime) / 60_000).toFixed(2)} min`);
   log('');
 
   // Detailed results table
