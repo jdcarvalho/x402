@@ -122,8 +122,11 @@ export async function verifyEIP3009(
 
   // Classify the payer: fetch code once, parse ERC-6492 wrapper, determine counterfactual.
   // Using classifyErc6492Payer avoids duplicating this block across eip3009.ts / v1/scheme.ts.
-  const { isCounterfactual, innerSignature, eip6492Deployment: classification6492 } =
-    await classifyErc6492Payer(signer, signature, payer);
+  const {
+    isCounterfactual,
+    innerSignature,
+    eip6492Deployment: classification6492,
+  } = await classifyErc6492Payer(signer, signature, payer);
 
   if (classification6492) {
     eip6492Deployment = classification6492;
@@ -262,7 +265,11 @@ export async function settleEIP3009(
     // Keep the full result so we can access the inner signature later for
     // the post-deploy transfer simulation.
     const settleErc6492Data = parseErc6492Signature(eip3009Payload.signature!);
-    const { address: factoryAddress, data: factoryCalldata, signature: erc6492InnerSig } = settleErc6492Data;
+    const {
+      address: factoryAddress,
+      data: factoryCalldata,
+      signature: erc6492InnerSig,
+    } = settleErc6492Data;
 
     // Deploy ERC-4337 smart wallet via EIP-6492 if factory is in the allowlist
     if (

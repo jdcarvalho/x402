@@ -113,8 +113,16 @@ export async function verifyBatchSettlementVoucherTypedData(
     // no code check, no EIP-1271. Use recoverAddress directly so there is no
     // ambiguity: this path never issues an RPC call regardless of address state.
     try {
-      const digest = hashTypedData({ domain, types: voucherTypes, primaryType: "Voucher", message });
-      const recovered = await recoverAddress({ hash: digest, signature: params.signature as `0x${string}` });
+      const digest = hashTypedData({
+        domain,
+        types: voucherTypes,
+        primaryType: "Voucher",
+        message,
+      });
+      const recovered = await recoverAddress({
+        hash: digest,
+        signature: params.signature as `0x${string}`,
+      });
       return isAddressEqual(recovered, getAddress(params.payerAuthorizer));
     } catch {
       return false;

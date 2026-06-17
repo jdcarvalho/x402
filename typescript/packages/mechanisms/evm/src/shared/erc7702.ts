@@ -18,6 +18,9 @@ const ERC7702_BYTECODE_LENGTH = 48; // "0x" + 6 hex chars (prefix) + 40 hex char
  * The check is case-insensitive — `eth_getCode` casing is not normalized at the
  * JSON-RPC layer, so callers using ethers, custom signers, or post-processed
  * hex can pass uppercase variants.
+ *
+ * @param bytecode - Raw hex bytecode returned by `eth_getCode`.
+ * @returns `true` if the bytecode is an ERC-7702 delegation designation.
  */
 export function isERC7702Delegation(bytecode: `0x${string}` | undefined | null): boolean {
   if (!bytecode || bytecode === "0x") return false;
@@ -32,6 +35,9 @@ export function isERC7702Delegation(bytecode: `0x${string}` | undefined | null):
  * The Python equivalent returns lowercase hex. Normalise with `getAddress()` when comparing
  * cross-SDK outputs or storing in a case-sensitive index.
  * Returns `null` for non-7702 bytecode.
+ *
+ * @param bytecode - Raw hex bytecode returned by `eth_getCode`.
+ * @returns The lowercase `0x`-prefixed delegate address, or `null` if `bytecode` is not a 7702 designation.
  */
 export function getERC7702DelegateAddress(
   bytecode: `0x${string}` | undefined | null,

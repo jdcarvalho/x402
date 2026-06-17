@@ -104,8 +104,8 @@ describe("verifyERC1271", () => {
     const result = await verifyERC1271(
       signer,
       "0x1234567890123456789012345678901234567890",
-      "0x" + "0".repeat(64) as `0x${string}`,
-      "0x" + "f".repeat(130) as `0x${string}`,
+      ("0x" + "0".repeat(64)) as `0x${string}`,
+      ("0x" + "f".repeat(130)) as `0x${string}`,
     );
     expect(result).toBe(true);
   });
@@ -115,8 +115,8 @@ describe("verifyERC1271", () => {
     const result = await verifyERC1271(
       signer,
       "0x1234567890123456789012345678901234567890",
-      "0x" + "0".repeat(64) as `0x${string}`,
-      "0x" + "f".repeat(130) as `0x${string}`,
+      ("0x" + "0".repeat(64)) as `0x${string}`,
+      ("0x" + "f".repeat(130)) as `0x${string}`,
     );
     expect(result).toBe(false);
   });
@@ -126,8 +126,8 @@ describe("verifyERC1271", () => {
     const result = await verifyERC1271(
       signer,
       "0x1234567890123456789012345678901234567890",
-      "0x" + "0".repeat(64) as `0x${string}`,
-      "0x" + "f".repeat(130) as `0x${string}`,
+      ("0x" + "0".repeat(64)) as `0x${string}`,
+      ("0x" + "f".repeat(130)) as `0x${string}`,
     );
     expect(result).toBe(false);
   });
@@ -185,8 +185,7 @@ describe("verifyTypedDataSignature (code-routed)", () => {
     // ECDSA recovery WOULD succeed (sig was made by the underlying owner key) but
     // on-chain Permit2 / USDC SignatureChecker calls isValidSignature which rejects.
     // The strict primitive must mirror that.
-    const erc7702Bytecode =
-      "0xef01001234567890abcdef1234567890abcdef12345678" as `0x${string}`;
+    const erc7702Bytecode = "0xef01001234567890abcdef1234567890abcdef12345678" as `0x${string}`;
     const signer = mockSigner({
       code: erc7702Bytecode,
       isValidSignatureResult: ERC1271_FAIL,

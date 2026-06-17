@@ -42,6 +42,13 @@ if (!FACILITATOR_KEY) {
   process.exit(1);
 }
 
+/**
+ * Polls `eth_getCode` until bytecode appears at `address` or 30 attempts are exhausted.
+ *
+ * @param pc - Viem public client used for the `eth_getCode` calls.
+ * @param address - Contract address to poll.
+ * @param label - Human-readable label included in the timeout error message.
+ */
 async function waitForContractCode(
   pc: ReturnType<typeof createPublicClient>,
   address: `0x${string}`,
@@ -55,6 +62,12 @@ async function waitForContractCode(
   throw new Error(`${label} not indexed at ${address} after deploy`);
 }
 
+/**
+ * Writes or updates `KEY=value` entries in an env file, creating it if absent.
+ *
+ * @param path - Absolute path to the `.env` file to create or update.
+ * @param entries - Map of env var names to their values.
+ */
 function upsertEnv(path: string, entries: Record<string, string>) {
   mkdirSync(dirname(path), { recursive: true });
   let content = existsSync(path) ? readFileSync(path, "utf8") : "";
@@ -71,6 +84,11 @@ function upsertEnv(path: string, entries: Record<string, string>) {
   console.log(`Updated ${path}`);
 }
 
+/**
+ * Deploys Coinbase Smart Wallet and Biconomy Nexus accounts on Base Sepolia,
+ * verifies their `isValidSignature` implementations, and writes the resulting
+ * addresses and owner keys into the integration `.env` files.
+ */
 async function main() {
   const owner4337Key = (process.env.CLIENT_4337_OWNER_PRIVATE_KEY ??
     generatePrivateKey()) as `0x${string}`;
@@ -146,7 +164,13 @@ async function main() {
     message: { ...sampleTypedData.message, from: addr7579 },
   };
   const digest7579 = hashTypedData(sample7579);
-  const sig7579 = await signNexusTypedData(owner7579, addr7579, NEXUS_K1_VALIDATOR, sample7579, RPC_URL);
+  const sig7579 = await signNexusTypedData(
+    owner7579,
+    addr7579,
+    NEXUS_K1_VALIDATOR,
+    sample7579,
+    RPC_URL,
+  );
   const ok7579 = await verifyIsValidSignature(addr7579, digest7579, sig7579, RPC_URL);
   console.log(`Nexus isValidSignature:    ${ok7579 ? "✅ 0x1626ba7e" : "❌ FAILED"}`);
   if (!ok7579) process.exit(1);
@@ -177,10 +201,7 @@ async function main() {
   });
 
   const logPath = join(PACKAGE_ROOT, "scripts/setup-smart-accounts.log");
-  appendFileSync(
-    logPath,
-    `\n[${new Date().toISOString()}] 4337=${addr4337} 7579=${addr7579}\n`,
-  );
+  appendFileSync(logPath, `\n[${new Date().toISOString()}] 4337=${addr4337} 7579=${addr7579}\n`);
 
   console.log("\n✅ Setup complete. Fund these addresses with Base Sepolia USDC:");
   console.log(`   ${addr4337}  (Coinbase Smart Wallet)`);

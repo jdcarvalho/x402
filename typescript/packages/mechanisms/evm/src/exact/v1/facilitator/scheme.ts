@@ -344,8 +344,11 @@ export class ExactEvmSchemeV1 implements SchemeNetworkFacilitator {
     const signature = exactEvmPayload.signature!;
 
     // Classify the payer (counterfactual vs deployed) and extract inner sig in one shot.
-    const { isCounterfactual, innerSignature, eip6492Deployment: classification6492 } =
-      await classifyErc6492Payer(this.signer, signature, payer);
+    const {
+      isCounterfactual,
+      innerSignature,
+      eip6492Deployment: classification6492,
+    } = await classifyErc6492Payer(this.signer, signature, payer);
 
     if (classification6492) {
       eip6492Deployment = classification6492;

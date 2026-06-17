@@ -1,4 +1,10 @@
-import { hashTypedData, recoverAddress, isAddressEqual, getAddress, parseErc6492Signature } from "viem";
+import {
+  hashTypedData,
+  recoverAddress,
+  isAddressEqual,
+  getAddress,
+  parseErc6492Signature,
+} from "viem";
 import type { TypedDataDomain } from "viem";
 import type { FacilitatorEvmSigner } from "../signer";
 
@@ -22,6 +28,11 @@ const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000" as const;
 /**
  * Classify an ERC-6492 payer in one RPC round-trip: parse the sig wrapper, fetch code,
  * and determine counterfactual vs deployed state.
+ *
+ * @param signer - Facilitator signer used to call `eth_getCode` on the payer address.
+ * @param signature - The full signature, which may be an ERC-6492 wrapper.
+ * @param payerAddress - The address whose bytecode is fetched to detect deployment state.
+ * @returns Classification result including counterfactual flag, deployment state, and inner signature.
  */
 export async function classifyErc6492Payer(
   signer: FacilitatorEvmSigner,
@@ -48,7 +59,13 @@ export async function classifyErc6492Payer(
   const isDeployedAtPayer = !!(code && code !== "0x");
   const isCounterfactual = hasDeploymentInfo && !isDeployedAtPayer;
 
-  return { isCounterfactual, isDeployedAtPayer, hasDeploymentInfo, innerSignature, eip6492Deployment };
+  return {
+    isCounterfactual,
+    isDeployedAtPayer,
+    hasDeploymentInfo,
+    innerSignature,
+    eip6492Deployment,
+  };
 }
 
 /**
@@ -90,7 +107,19 @@ const ERC1271_ABI = [
   },
 ] as const;
 
-/** Verify a typed-data signature using strict on-chain SignatureChecker semantics. */
+/**
+ * Verify a typed-data signature using strict on-chain SignatureChecker semantics.
+ *
+ * @param signer - Facilitator signer used for `eth_getCode` and `isValidSignature` calls.
+ * @param params - Typed-data verification parameters.
+ * @param params.address - The address that is expected to have signed the data.
+ * @param params.domain - EIP-712 domain.
+ * @param params.types - EIP-712 type definitions.
+ * @param params.primaryType - The primary type to hash.
+ * @param params.message - The typed-data message.
+ * @param params.signature - The signature to verify.
+ * @returns `true` if the signature is valid, `false` otherwise.
+ */
 export async function verifyTypedDataSignature(
   signer: FacilitatorEvmSigner,
   params: {
@@ -118,7 +147,15 @@ export async function verifyTypedDataSignature(
   return verifyHashSignature(signer, params.address, digest, params.signature);
 }
 
-/** Lower-level variant of {@link verifyTypedDataSignature} for callers that already have the digest. */
+/**
+ * Lower-level variant of {@link verifyTypedDataSignature} for callers that already have the digest.
+ *
+ * @param signer - Facilitator signer used for `eth_getCode` and `isValidSignature` calls.
+ * @param address - The address that is expected to have produced the signature.
+ * @param digest - The EIP-191 / EIP-712 message hash to verify against.
+ * @param signature - The signature to verify.
+ * @returns `true` if the signature is valid, `false` otherwise.
+ */
 export async function verifyHashSignature(
   signer: FacilitatorEvmSigner,
   address: `0x${string}`,
@@ -143,6 +180,13 @@ export async function verifyHashSignature(
  * ERC-6492 counterfactual check in {@link classifyErc6492Payer}).
  *
  * Pass `undefined` or `"0x"` for `code` to take the EOA (ecrecover) path.
+ *
+ * @param signer - Facilitator signer used for `isValidSignature` calls on deployed contracts.
+ * @param address - The address that is expected to have produced the signature.
+ * @param code - Pre-fetched bytecode at `address`; `undefined` or `"0x"` takes the ECDSA path.
+ * @param digest - The message hash to verify against.
+ * @param signature - The signature to verify.
+ * @returns `true` if the signature is valid, `false` otherwise.
  */
 export function verifyHashSignatureWithCode(
   signer: FacilitatorEvmSigner,
@@ -157,7 +201,14 @@ export function verifyHashSignatureWithCode(
   return verifyERC1271(signer, address, digest, signature);
 }
 
-/** ecrecover path — used when the address has no code. */
+/**
+ * ecrecover path — used when the address has no code.
+ *
+ * @param address - The address expected to be recovered from the signature.
+ * @param digest - The message hash to recover from.
+ * @param signature - The compact 65-byte ECDSA signature.
+ * @returns `true` if ecrecover produces `address`, `false` otherwise.
+ */
 export async function verifyECDSA(
   address: `0x${string}`,
   digest: `0x${string}`,
@@ -173,7 +224,15 @@ export async function verifyECDSA(
   }
 }
 
-/** Strict EIP-1271 path — returns false on revert or non-magic return, never falls back to ECDSA. */
+/**
+ * Strict EIP-1271 path — returns false on revert or non-magic return, never falls back to ECDSA.
+ *
+ * @param signer - Facilitator signer used to call `isValidSignature` on the contract.
+ * @param address - The contract address whose `isValidSignature` is called.
+ * @param digest - The hash passed as the first argument to `isValidSignature`.
+ * @param signature - The signature bytes passed as the second argument.
+ * @returns `true` if `isValidSignature` returns the ERC-1271 magic value, `false` otherwise.
+ */
 export async function verifyERC1271(
   signer: FacilitatorEvmSigner,
   address: `0x${string}`,

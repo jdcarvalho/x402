@@ -42,8 +42,7 @@ export const NEXUS_K1_VALIDATOR = "0x0000000002d3cC5642A748B6783F32C032616E03" a
  * ERC-7579 signature prefix for accounts initialized with initNexusWithDefaultValidator.
  * Nexus routes address(0) to the bootstrap default validator (see _handleValidator).
  */
-export const NEXUS_DEFAULT_VALIDATOR_PREFIX =
-  "0x0000000000000000000000000000000000000000" as const;
+export const NEXUS_DEFAULT_VALIDATOR_PREFIX = "0x0000000000000000000000000000000000000000" as const;
 
 export const EIP1271_MAGIC = "0x1626ba7e" as const;
 
@@ -120,10 +119,10 @@ export function buildNexusInitData(owner: `0x${string}`): Hex {
     functionName: "initNexusWithDefaultValidator",
     args: [ownerData],
   });
-  return encodeAbiParameters(
-    parseAbiParameters("address bootstrap, bytes bootstrapCall"),
-    [getAddress(NEXUS_BOOTSTRAP), bootstrapCall],
-  );
+  return encodeAbiParameters(parseAbiParameters("address bootstrap, bytes bootstrapCall"), [
+    getAddress(NEXUS_BOOTSTRAP),
+    bootstrapCall,
+  ]);
 }
 
 /** Deterministic salt for owner + index (matches integration-test deployment). */

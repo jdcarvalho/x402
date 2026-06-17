@@ -35,7 +35,6 @@ const mockGetCodeEOAPayer =
 // while delegating other calls to `impl`. Keeps "default: valid sig" semantics
 // for tests that override readContract for other purposes (nonce, allowance, etc.).
 const sigValid = "0x1626ba7e";
-const sigInvalid = "0xffffffff";
 function rcWithSig(
   impl: unknown | ((args: { address?: string; functionName?: string }) => unknown),
   sigResponse: string = sigValid,
@@ -360,27 +359,27 @@ describe("ExactEvmScheme (Facilitator)", () => {
 
       // Simulation fails (settle throws), diagnostic multicall returns proxy OK, balance OK, allowance 0
       mockFacilitatorSigner.readContract = rcWithSig(({ address }: { address: string }) => {
-          if (address === x402ExactPermit2ProxyAddress) {
-            return Promise.reject(new Error("execution reverted"));
-          }
-          if (address === MULTICALL3_ADDRESS) {
-            return Promise.resolve([
-              {
-                success: true,
-                returnData: "0x000000000000000000000000000000000022D473030F116dDEE9F6B43aC78BA3",
-              },
-              {
-                success: true,
-                returnData: "0x00000000000000000000000000000000000000000000000000000000000f4240",
-              },
-              {
-                success: true,
-                returnData: "0x0000000000000000000000000000000000000000000000000000000000000000",
-              },
-            ]);
-          }
-          return Promise.resolve(BigInt(0));
-        });
+        if (address === x402ExactPermit2ProxyAddress) {
+          return Promise.reject(new Error("execution reverted"));
+        }
+        if (address === MULTICALL3_ADDRESS) {
+          return Promise.resolve([
+            {
+              success: true,
+              returnData: "0x000000000000000000000000000000000022D473030F116dDEE9F6B43aC78BA3",
+            },
+            {
+              success: true,
+              returnData: "0x00000000000000000000000000000000000000000000000000000000000f4240",
+            },
+            {
+              success: true,
+              returnData: "0x0000000000000000000000000000000000000000000000000000000000000000",
+            },
+          ]);
+        }
+        return Promise.resolve(BigInt(0));
+      });
 
       const permit2Payload: PaymentPayload = {
         x402Version: 2,
@@ -751,27 +750,27 @@ describe("ExactEvmScheme (Facilitator)", () => {
     it("should reject when simulation fails and no extension present (allowance insufficient)", async () => {
       // Simulation fails, diagnostic multicall returns low allowance
       mockFacilitatorSigner.readContract = rcWithSig(({ address }: { address: string }) => {
-          if (address === x402ExactPermit2ProxyAddress) {
-            return Promise.reject(new Error("execution reverted"));
-          }
-          if (address === MULTICALL3_ADDRESS) {
-            return Promise.resolve([
-              {
-                success: true,
-                returnData: "0x000000000000000000000000000000000022D473030F116dDEE9F6B43aC78BA3",
-              },
-              {
-                success: true,
-                returnData: "0x00000000000000000000000000000000000000000000000000000000000f4240",
-              },
-              {
-                success: true,
-                returnData: "0x0000000000000000000000000000000000000000000000000000000000000000",
-              },
-            ]);
-          }
-          return Promise.resolve(BigInt(0));
-        });
+        if (address === x402ExactPermit2ProxyAddress) {
+          return Promise.reject(new Error("execution reverted"));
+        }
+        if (address === MULTICALL3_ADDRESS) {
+          return Promise.resolve([
+            {
+              success: true,
+              returnData: "0x000000000000000000000000000000000022D473030F116dDEE9F6B43aC78BA3",
+            },
+            {
+              success: true,
+              returnData: "0x00000000000000000000000000000000000000000000000000000000000f4240",
+            },
+            {
+              success: true,
+              returnData: "0x0000000000000000000000000000000000000000000000000000000000000000",
+            },
+          ]);
+        }
+        return Promise.resolve(BigInt(0));
+      });
 
       const permit2Requirements: PaymentRequirements = {
         scheme: "exact",
@@ -908,14 +907,14 @@ describe("ExactEvmScheme (Facilitator)", () => {
         .fn()
         .mockImplementation(mockGetCodeEOAPayer("0x036CbD53842c5426634e7929541eC2318f3dCF7e"));
       mockFacilitatorSigner.readContract = rcWithSig(({ address }: { address: string }) => {
-          if (address === MULTICALL3_ADDRESS) {
-            return Promise.resolve([
-              { success: true, returnData: "0x" },
-              { success: true, returnData: "0x" },
-            ]);
-          }
-          return Promise.resolve(BigInt("10000000"));
-        });
+        if (address === MULTICALL3_ADDRESS) {
+          return Promise.resolve([
+            { success: true, returnData: "0x" },
+            { success: true, returnData: "0x" },
+          ]);
+        }
+        return Promise.resolve(BigInt("10000000"));
+      });
 
       const result = await facilitator.verify(makeERC6492Payload(erc6492Sig), erc6492Requirements);
 
@@ -929,14 +928,14 @@ describe("ExactEvmScheme (Facilitator)", () => {
         .fn()
         .mockImplementation(mockGetCodeEOAPayer("0x036CbD53842c5426634e7929541eC2318f3dCF7e"));
       mockFacilitatorSigner.readContract = rcWithSig(({ address }: { address: string }) => {
-          if (address === MULTICALL3_ADDRESS) {
-            return Promise.resolve([
-              { success: true, returnData: "0x" },
-              { success: true, returnData: "0x" },
-            ]);
-          }
-          return Promise.resolve(BigInt("10000000"));
-        });
+        if (address === MULTICALL3_ADDRESS) {
+          return Promise.resolve([
+            { success: true, returnData: "0x" },
+            { success: true, returnData: "0x" },
+          ]);
+        }
+        return Promise.resolve(BigInt("10000000"));
+      });
 
       const result = await facilitator.verify(makeERC6492Payload(erc6492Sig), erc6492Requirements);
 
@@ -952,14 +951,14 @@ describe("ExactEvmScheme (Facilitator)", () => {
         .fn()
         .mockImplementation(mockGetCodeEOAPayer("0x036CbD53842c5426634e7929541eC2318f3dCF7e"));
       mockFacilitatorSigner.readContract = rcWithSig(({ address }: { address: string }) => {
-          if (address === MULTICALL3_ADDRESS) {
-            return Promise.resolve([
-              { success: true, returnData: "0x" },
-              { success: true, returnData: "0x" },
-            ]);
-          }
-          return Promise.resolve(BigInt("10000000"));
-        });
+        if (address === MULTICALL3_ADDRESS) {
+          return Promise.resolve([
+            { success: true, returnData: "0x" },
+            { success: true, returnData: "0x" },
+          ]);
+        }
+        return Promise.resolve(BigInt("10000000"));
+      });
 
       const result = await facilitator.verify(makeERC6492Payload(erc6492Sig), erc6492Requirements);
 
@@ -973,25 +972,25 @@ describe("ExactEvmScheme (Facilitator)", () => {
         .fn()
         .mockImplementation(mockGetCodeEOAPayer("0x036CbD53842c5426634e7929541eC2318f3dCF7e"));
       mockFacilitatorSigner.readContract = rcWithSig(({ address }: { address: string }) => {
-          if (address === MULTICALL3_ADDRESS) {
-            return Promise.resolve([
-              { success: true, returnData: "0x" },
-              { success: false, returnData: "0x" },
-            ]);
-          }
+        if (address === MULTICALL3_ADDRESS) {
           return Promise.resolve([
-            {
-              success: true,
-              returnData: "0x00000000000000000000000000000000000000000000000000000000000f4240",
-            },
             { success: true, returnData: "0x" },
-            { success: true, returnData: "0x" },
-            {
-              success: true,
-              returnData: "0x0000000000000000000000000000000000000000000000000000000000000000",
-            },
+            { success: false, returnData: "0x" },
           ]);
-        });
+        }
+        return Promise.resolve([
+          {
+            success: true,
+            returnData: "0x00000000000000000000000000000000000000000000000000000000000f4240",
+          },
+          { success: true, returnData: "0x" },
+          { success: true, returnData: "0x" },
+          {
+            success: true,
+            returnData: "0x0000000000000000000000000000000000000000000000000000000000000000",
+          },
+        ]);
+      });
 
       const result = await facilitator.verify(makeERC6492Payload(erc6492Sig), erc6492Requirements);
 
@@ -1004,25 +1003,25 @@ describe("ExactEvmScheme (Facilitator)", () => {
         .fn()
         .mockImplementation(mockGetCodeEOAPayer("0x036CbD53842c5426634e7929541eC2318f3dCF7e"));
       mockFacilitatorSigner.readContract = rcWithSig(({ address }: { address: string }) => {
-          if (address === MULTICALL3_ADDRESS) {
-            return Promise.resolve([
-              { success: true, returnData: "0x" },
-              { success: false, returnData: "0x" },
-            ]);
-          }
+        if (address === MULTICALL3_ADDRESS) {
           return Promise.resolve([
-            {
-              success: true,
-              returnData: "0x00000000000000000000000000000000000000000000000000000000000f4240",
-            },
             { success: true, returnData: "0x" },
-            { success: true, returnData: "0x" },
-            {
-              success: true,
-              returnData: "0x0000000000000000000000000000000000000000000000000000000000000000",
-            },
+            { success: false, returnData: "0x" },
           ]);
-        });
+        }
+        return Promise.resolve([
+          {
+            success: true,
+            returnData: "0x00000000000000000000000000000000000000000000000000000000000f4240",
+          },
+          { success: true, returnData: "0x" },
+          { success: true, returnData: "0x" },
+          {
+            success: true,
+            returnData: "0x0000000000000000000000000000000000000000000000000000000000000000",
+          },
+        ]);
+      });
 
       const result = await facilitator.verify(makeERC6492Payload(erc6492Sig), erc6492Requirements);
 
@@ -1094,14 +1093,14 @@ describe("ExactEvmScheme (Facilitator)", () => {
       mockFacilitatorSigner.verifyTypedData = vi.fn().mockResolvedValue(false);
       mockFacilitatorSigner.getCode = vi.fn().mockResolvedValue("0x6080604052");
       mockFacilitatorSigner.readContract = rcWithSig(({ address }: { address: string }) => {
-          if (address === MULTICALL3_ADDRESS) {
-            return Promise.resolve([
-              { success: true, returnData: "0x" },
-              { success: true, returnData: "0x" },
-            ]);
-          }
-          return Promise.resolve(undefined);
-        });
+        if (address === MULTICALL3_ADDRESS) {
+          return Promise.resolve([
+            { success: true, returnData: "0x" },
+            { success: true, returnData: "0x" },
+          ]);
+        }
+        return Promise.resolve(undefined);
+      });
 
       const result = await facilitator.verify(makeERC6492Payload(erc6492Sig), erc6492Requirements);
 
@@ -1354,27 +1353,27 @@ describe("ExactEvmScheme (Facilitator)", () => {
     it("should reject when simulation fails and no ERC-20 extension (no context)", async () => {
       // Simulation of settle() fails, diagnostic multicall shows low allowance
       mockFacilitatorSigner.readContract = rcWithSig(({ address }: { address: string }) => {
-          if (address === x402ExactPermit2ProxyAddress) {
-            return Promise.reject(new Error("execution reverted"));
-          }
-          if (address === MULTICALL3_ADDRESS) {
-            return Promise.resolve([
-              {
-                success: true,
-                returnData: "0x000000000000000000000000000000000022D473030F116dDEE9F6B43aC78BA3",
-              },
-              {
-                success: true,
-                returnData: "0x00000000000000000000000000000000000000000000000000000000000f4240",
-              },
-              {
-                success: true,
-                returnData: "0x0000000000000000000000000000000000000000000000000000000000000000",
-              },
-            ]);
-          }
-          return Promise.resolve(BigInt(0));
-        });
+        if (address === x402ExactPermit2ProxyAddress) {
+          return Promise.reject(new Error("execution reverted"));
+        }
+        if (address === MULTICALL3_ADDRESS) {
+          return Promise.resolve([
+            {
+              success: true,
+              returnData: "0x000000000000000000000000000000000022D473030F116dDEE9F6B43aC78BA3",
+            },
+            {
+              success: true,
+              returnData: "0x00000000000000000000000000000000000000000000000000000000000f4240",
+            },
+            {
+              success: true,
+              returnData: "0x0000000000000000000000000000000000000000000000000000000000000000",
+            },
+          ]);
+        }
+        return Promise.resolve(BigInt(0));
+      });
 
       const payload = makeErc20Permit2Payload();
       const result = await facilitator.verify(payload, erc20Requirements);
@@ -1478,20 +1477,20 @@ describe("ExactEvmScheme (Facilitator)", () => {
     it("should accept when valid ERC-20 extension present and prerequisites pass", async () => {
       // checkPermit2Prerequisites multicall: proxy deployed + sufficient token balance
       mockFacilitatorSigner.readContract = rcWithSig(({ address }: { address: string }) => {
-          if (address === MULTICALL3_ADDRESS) {
-            return Promise.resolve([
-              {
-                success: true,
-                returnData: "0x000000000000000000000000000000000022D473030F116dDEE9F6B43aC78BA3",
-              },
-              {
-                success: true,
-                returnData: "0x00000000000000000000000000000000000000000000000000000000000f4240",
-              },
-            ]);
-          }
-          return Promise.resolve(undefined);
-        });
+        if (address === MULTICALL3_ADDRESS) {
+          return Promise.resolve([
+            {
+              success: true,
+              returnData: "0x000000000000000000000000000000000022D473030F116dDEE9F6B43aC78BA3",
+            },
+            {
+              success: true,
+              returnData: "0x00000000000000000000000000000000000000000000000000000000000f4240",
+            },
+          ]);
+        }
+        return Promise.resolve(undefined);
+      });
 
       const { parseTransaction, recoverTransactionAddress } = await import("viem");
       vi.mocked(parseTransaction).mockReturnValue({
@@ -1578,25 +1577,25 @@ describe("ExactEvmScheme (Facilitator)", () => {
       vi.mocked(recoverTransactionAddress).mockResolvedValue(PAYER);
 
       mockFacilitatorSigner.readContract = rcWithSig(({ address }: { address: string }) => {
-          if (address === MULTICALL3_ADDRESS) {
-            // diagnostic multicall: proxy deployed, balance insufficient
-            return Promise.resolve([
-              {
-                success: true,
-                returnData: "0x000000000000000000000000000000000022D473030F116dDEE9F6B43aC78BA3",
-              },
-              {
-                success: true,
-                returnData: "0x0000000000000000000000000000000000000000000000000000000000000001",
-              },
-              {
-                success: true,
-                returnData: "0x0000000000000000000000000000000000000000000000000000000000000000",
-              },
-            ]);
-          }
-          return Promise.resolve(undefined);
-        });
+        if (address === MULTICALL3_ADDRESS) {
+          // diagnostic multicall: proxy deployed, balance insufficient
+          return Promise.resolve([
+            {
+              success: true,
+              returnData: "0x000000000000000000000000000000000022D473030F116dDEE9F6B43aC78BA3",
+            },
+            {
+              success: true,
+              returnData: "0x0000000000000000000000000000000000000000000000000000000000000001",
+            },
+            {
+              success: true,
+              returnData: "0x0000000000000000000000000000000000000000000000000000000000000000",
+            },
+          ]);
+        }
+        return Promise.resolve(undefined);
+      });
 
       const mockSimulateTransactions = vi.fn().mockResolvedValue(false);
 
@@ -1633,20 +1632,20 @@ describe("ExactEvmScheme (Facilitator)", () => {
 
       // prerequisites pass: proxy deployed + sufficient token balance
       mockFacilitatorSigner.readContract = rcWithSig(({ address }: { address: string }) => {
-          if (address === MULTICALL3_ADDRESS) {
-            return Promise.resolve([
-              {
-                success: true,
-                returnData: "0x000000000000000000000000000000000022D473030F116dDEE9F6B43aC78BA3",
-              },
-              {
-                success: true,
-                returnData: "0x00000000000000000000000000000000000000000000000000000000000f4240",
-              },
-            ]);
-          }
-          return Promise.resolve(undefined);
-        });
+        if (address === MULTICALL3_ADDRESS) {
+          return Promise.resolve([
+            {
+              success: true,
+              returnData: "0x000000000000000000000000000000000022D473030F116dDEE9F6B43aC78BA3",
+            },
+            {
+              success: true,
+              returnData: "0x00000000000000000000000000000000000000000000000000000000000f4240",
+            },
+          ]);
+        }
+        return Promise.resolve(undefined);
+      });
 
       // signer has sendTransactions but no simulateTransactions (legacy)
       const mockContext = {
@@ -1930,7 +1929,8 @@ describe("ExactEvmScheme (Facilitator)", () => {
         .fn()
         .mockImplementation(({ address }: { address: string }) => {
           const assetAddr = "0x036CbD53842c5426634e7929541eC2318f3dCF7e";
-          if (address.toLowerCase() === assetAddr.toLowerCase()) return Promise.resolve("0x6080604052");
+          if (address.toLowerCase() === assetAddr.toLowerCase())
+            return Promise.resolve("0x6080604052");
           return Promise.resolve(deployed ? "0x6080604052" : "0x");
         });
       const scheme = new ExactEvmScheme(mockFacilitatorSigner, {
@@ -1957,7 +1957,8 @@ describe("ExactEvmScheme (Facilitator)", () => {
         .fn()
         .mockImplementation(({ address }: { address: string }) => {
           const assetAddr = "0x036CbD53842c5426634e7929541eC2318f3dCF7e";
-          if (address.toLowerCase() === assetAddr.toLowerCase()) return Promise.resolve("0x6080604052");
+          if (address.toLowerCase() === assetAddr.toLowerCase())
+            return Promise.resolve("0x6080604052");
           return Promise.resolve(deployed ? "0x6080604052" : "0x");
         });
       const scheme = new ExactEvmScheme(mockFacilitatorSigner, {
