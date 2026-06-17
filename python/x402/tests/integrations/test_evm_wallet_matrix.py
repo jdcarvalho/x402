@@ -123,7 +123,6 @@ def _build_server(
     return server, facil_signer
 
 
-
 def _run_flow(
     client_signer: EthAccountSigner,
     server: x402ResourceServerSync,
@@ -147,7 +146,9 @@ def _run_flow(
             extra=extra,
         )
     ]
-    resource = ResourceInfo(url="https://test.x402.org", description=label, mime_type="application/json")
+    resource = ResourceInfo(
+        url="https://test.x402.org", description=label, mime_type="application/json"
+    )
     payment_required = server.create_payment_required_response(accepts, resource)
     payload = client.create_payment_payload(payment_required)
     accepted = server.find_matching_requirements(accepts, payload)
@@ -177,7 +178,9 @@ class TestWalletMatrixA:
 
         server, _ = _build_server(FACILITATOR_KEY)
         signer = EthAccountSigner(Account.from_key(EOA_KEY))
-        settle = _run_flow(signer, server, RESOURCE_SERVER, "wallet-A-plain-eoa-permit2", use_permit2=True)
+        settle = _run_flow(
+            signer, server, RESOURCE_SERVER, "wallet-A-plain-eoa-permit2", use_permit2=True
+        )
         print(f"\nWallet A (Permit2) ✅ tx={settle.transaction} payer={settle.payer}")
 
 
@@ -224,8 +227,7 @@ class TestWalletMatrixD:
         code = w3.eth.get_code(acct.address)
         if not is_erc7702_delegation(code):
             pytest.skip(
-                f"Account {acct.address} is not ERC-7702 delegated. "
-                "Run setup-wallets-v3.mjs first."
+                f"Account {acct.address} is not ERC-7702 delegated. Run setup-wallets-v3.mjs first."
             )
         return acct
 
@@ -243,7 +245,9 @@ class TestWalletMatrixD:
         print(f"\nWallet D Permit2: {acct.address} is 7702-delegated ✓")
         server, _ = _build_server(FACILITATOR_KEY)
         signer = EthAccountSigner(acct)
-        settle = _run_flow(signer, server, RESOURCE_SERVER, "wallet-D-erc7702-permit2", use_permit2=True)
+        settle = _run_flow(
+            signer, server, RESOURCE_SERVER, "wallet-D-erc7702-permit2", use_permit2=True
+        )
         assert settle.payer.lower() == acct.address.lower()
         print(f"Wallet D (Permit2) ✅ tx={settle.transaction} payer={settle.payer}")
 

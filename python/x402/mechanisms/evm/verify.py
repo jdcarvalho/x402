@@ -209,8 +209,7 @@ def _hash_typed_data(
     }
     for type_name, fields in types.items():
         full_types[type_name] = [
-            {"name": f.name, "type": f.type} if isinstance(f, TypedDataField) else f
-            for f in fields
+            {"name": f.name, "type": f.type} if isinstance(f, TypedDataField) else f for f in fields
         ]
 
     msg_copy = dict(message)

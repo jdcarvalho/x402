@@ -68,7 +68,9 @@ def _domain_dict(domain: TypedDataDomain | dict[str, Any]) -> dict[str, Any]:
     return domain
 
 
-def _types_dict(types: dict[str, list[TypedDataField | dict[str, str]]]) -> dict[str, list[dict[str, str]]]:
+def _types_dict(
+    types: dict[str, list[TypedDataField | dict[str, str]]],
+) -> dict[str, list[dict[str, str]]]:
     out: dict[str, list[dict[str, str]]] = {}
     for type_name, fields in types.items():
         out[type_name] = [
