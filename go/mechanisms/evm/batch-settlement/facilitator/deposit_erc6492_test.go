@@ -145,13 +145,10 @@ func TestSettleDeposit_CounterfactualFactoryNotAllowed(t *testing.T) {
 	}
 	collectorAddr := common.HexToAddress(batchsettlement.ERC3009DepositCollectorAddress)
 
-	resp, err := deployErc3009CounterfactualIfNeeded(
+	err = deployErc3009CounterfactualIfNeeded(
 		context.Background(), signer, payload, reqsWithExtra(), nil, // empty allowlist
 		configTuple, big.NewInt(1000), collectorAddr, collectorData,
 	)
-	if resp != nil {
-		t.Fatalf("expected nil response, got %+v", resp)
-	}
 	var se *x402.SettleError
 	if !errors.As(err, &se) || se.ErrorReason != ErrFactoryNotAllowed {
 		t.Fatalf("got err = %v, want %s", err, ErrFactoryNotAllowed)
@@ -192,13 +189,10 @@ func TestSettleDeposit_CounterfactualDeployedWalletRejectsInnerSig(t *testing.T)
 	}
 	collectorAddr := common.HexToAddress(batchsettlement.ERC3009DepositCollectorAddress)
 
-	resp, err := deployErc3009CounterfactualIfNeeded(
+	err = deployErc3009CounterfactualIfNeeded(
 		context.Background(), signer, payload, reqsWithExtra(), []string{testErc6492Factory},
 		configTuple, big.NewInt(1000), collectorAddr, collectorData,
 	)
-	if resp != nil {
-		t.Fatalf("expected nil response, got %+v", resp)
-	}
 	var se *x402.SettleError
 	if !errors.As(err, &se) || se.ErrorReason != ErrDeployedInnerWalletSignatureUnsupported {
 		t.Fatalf("got err = %v, want %s", err, ErrDeployedInnerWalletSignatureUnsupported)
@@ -237,12 +231,12 @@ func TestSettleDeposit_CounterfactualHappyPath(t *testing.T) {
 	)
 	collectorAddr := common.HexToAddress(batchsettlement.ERC3009DepositCollectorAddress)
 
-	resp, err := deployErc3009CounterfactualIfNeeded(
+	err := deployErc3009CounterfactualIfNeeded(
 		context.Background(), signer, payload, reqsWithExtra(), []string{testErc6492Factory},
 		configTuple, big.NewInt(1000), collectorAddr, collectorData,
 	)
-	if err != nil || resp != nil {
-		t.Fatalf("expected (nil, nil) to proceed to deposit, got resp=%+v err=%v", resp, err)
+	if err != nil {
+		t.Fatalf("expected nil to proceed to deposit, got err=%v", err)
 	}
 	if signer.sendCalls != 1 {
 		t.Fatalf("expected one deploy tx, sendCalls=%d", signer.sendCalls)
@@ -257,13 +251,13 @@ func TestSettleDeposit_PlainSigNoDeploy(t *testing.T) {
 	// Replace the wrapped signature with a plain 65-byte signature.
 	payload.Deposit.Authorization.Erc3009Authorization.Signature = "0x" + strings.Repeat("11", 65)
 
-	resp, err := deployErc3009CounterfactualIfNeeded(
+	err := deployErc3009CounterfactualIfNeeded(
 		context.Background(), signer, payload, reqsWithExtra(), []string{testErc6492Factory},
 		ToContractChannelConfig(payload.ChannelConfig), big.NewInt(1000),
 		common.HexToAddress(batchsettlement.ERC3009DepositCollectorAddress), []byte{0x01},
 	)
-	if err != nil || resp != nil {
-		t.Fatalf("expected no-op (nil, nil) for plain sig, got resp=%+v err=%v", resp, err)
+	if err != nil {
+		t.Fatalf("expected no-op (nil) for plain sig, got err=%v", err)
 	}
 	if signer.sendCalls != 0 {
 		t.Fatalf("expected no deploy tx for plain sig, sendCalls=%d", signer.sendCalls)

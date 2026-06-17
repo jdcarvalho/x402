@@ -33,10 +33,10 @@ import (
 )
 
 const (
-	matrixUSDC        = "0x036CbD53842c5426634e7929541eC2318f3dCF7e"
-	matrixAmount      = "100" // 0.0001 USDC
-	matrixNetwork     = "eip155:84532"
-	matrixRPC         = "https://sepolia.base.org"
+	matrixUSDC    = "0x036CbD53842c5426634e7929541eC2318f3dCF7e"
+	matrixAmount  = "100" // 0.0001 USDC
+	matrixNetwork = "eip155:84532"
+	matrixRPC     = "https://sepolia.base.org"
 )
 
 func buildMatrixAccepts(payTo string) []types.PaymentRequirements {

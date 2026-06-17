@@ -359,11 +359,11 @@ func SettleDeposit(
 	// deposit with the inner signature to catch wallets whose validator is installed
 	// lazily — submitting a doomed deposit would waste gas and misreport the failure.
 	if transferMethod == batchsettlement.AssetTransferMethodEip3009 {
-		if resp, err := deployErc3009CounterfactualIfNeeded(
+		if err := deployErc3009CounterfactualIfNeeded(
 			ctx, signer, payload, requirements, allowedFactories,
 			configTuple, depositAmount, collectorAddr, collectorData,
-		); resp != nil || err != nil {
-			return resp, err
+		); err != nil {
+			return nil, err
 		}
 	}
 
@@ -692,9 +692,9 @@ func simulateCounterfactualErc3009Deposit(
 
 // deployErc3009CounterfactualIfNeeded deploys an undeployed ERC-6492 wallet before an
 // ERC-3009 deposit when the authorization is wrapped with allowlisted factory deployment
-// info. Returns (nil, nil) when no deployment is needed (caller proceeds to deposit), or a
-// terminal (*SettleResponse-less) settle error when the factory is disallowed, the deploy
-// reverts, or the deployed wallet rejects the inner signature.
+// info. Returns nil when no deployment is needed (caller proceeds to deposit), or a
+// settle error when the factory is disallowed, the deploy reverts, or the deployed
+// wallet rejects the inner signature.
 func deployErc3009CounterfactualIfNeeded(
 	ctx context.Context,
 	signer evm.FacilitatorEvmSigner,
@@ -705,45 +705,45 @@ func deployErc3009CounterfactualIfNeeded(
 	depositAmount *big.Int,
 	collectorAddr common.Address,
 	collectorData []byte,
-) (*x402.SettleResponse, error) {
+) error {
 	config := payload.ChannelConfig
 	network := x402.Network(requirements.Network)
 
 	auth := payload.Deposit.Authorization.Erc3009Authorization
 	if auth == nil {
-		return nil, nil
+		return nil
 	}
 	sigBytes, err := evm.HexToBytes(auth.Signature)
 	if err != nil {
-		return nil, x402.NewSettleError(ErrErc3009SignatureInvalid, "", network, config.Payer,
+		return x402.NewSettleError(ErrErc3009SignatureInvalid, "", network, config.Payer,
 			fmt.Sprintf("invalid erc3009 signature: %s", err))
 	}
 	sigData, err := evm.ParseERC6492Signature(sigBytes)
 	if err != nil {
-		return nil, x402.NewSettleError(ErrErc3009SignatureInvalid, "", network, config.Payer,
+		return x402.NewSettleError(ErrErc3009SignatureInvalid, "", network, config.Payer,
 			fmt.Sprintf("failed to parse signature: %s", err))
 	}
 	if !evm.HasEIP6492Deployment(sigData) {
-		return nil, nil
+		return nil
 	}
 
 	code, err := signer.GetCode(ctx, config.Payer)
 	if err != nil {
-		return nil, x402.NewSettleError(ErrChannelStateReadFailed, "", network, config.Payer,
+		return x402.NewSettleError(ErrChannelStateReadFailed, "", network, config.Payer,
 			fmt.Sprintf("failed to read payer code: %s", err))
 	}
 	if len(code) != 0 {
 		// Already deployed — nothing to do; proceed with the standard deposit.
-		return nil, nil
+		return nil
 	}
 
 	if !evm.IsFactoryAllowed(sigData.Factory, allowedFactories) {
-		return nil, x402.NewSettleError(ErrFactoryNotAllowed, "", network, config.Payer,
+		return x402.NewSettleError(ErrFactoryNotAllowed, "", network, config.Payer,
 			"factory not in EIP6492AllowedFactories allowlist")
 	}
 
 	if err := evm.SendFactoryDeployTransaction(ctx, signer, sigData); err != nil {
-		return nil, x402.NewSettleError(ErrSmartWalletDeploymentFailed, "", network, config.Payer, err.Error())
+		return x402.NewSettleError(ErrSmartWalletDeploymentFailed, "", network, config.Payer, err.Error())
 	}
 
 	// Post-deploy: some ERC-7579 / Kernel wallets install validators lazily, so the
@@ -752,11 +752,11 @@ func deployErc3009CounterfactualIfNeeded(
 	if ok, _ := simulateDeployedErc3009Deposit(
 		ctx, signer, configTuple, depositAmount, collectorAddr, collectorData,
 	); !ok {
-		return nil, x402.NewSettleError(ErrDeployedInnerWalletSignatureUnsupported, "", network, config.Payer,
+		return x402.NewSettleError(ErrDeployedInnerWalletSignatureUnsupported, "", network, config.Payer,
 			MsgDeployedInnerWalletSignatureUnsupported)
 	}
 
-	return nil, nil
+	return nil
 }
 
 // simulateDeployedErc3009Deposit simulates a plain deposit() eth_call (the wallet is already

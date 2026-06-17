@@ -44,7 +44,7 @@ func TestVerifyBatchedVoucherTypedData_RoutesToPayerAuthorizer(t *testing.T) {
 	// The key assertion is that VerifyTypedData on the signer is NOT called.
 	signer := &fakeFacilitatorSigner{}
 	_, err := VerifyBatchedVoucherTypedData(context.Background(), signer,
-		"0xabcd", "100",
+		testErc3009ChannelId, "100",
 		"0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", // payerAuthorizer
 		"0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", // payer
 		"0xdead", chainID())
@@ -70,9 +70,9 @@ func TestVerifyBatchedVoucherTypedData_RoutesToPayerWhenAuthorizerZero(t *testin
 		},
 	}
 	_, err := VerifyBatchedVoucherTypedData(context.Background(), signer,
-		"0xabcd", "100",
+		testErc3009ChannelId, "100",
 		zeroAddress,
-		"0xpayer",
+		"0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
 		"0xdead", chainID())
 	if err != nil {
 		t.Fatalf("err: %v", err)
@@ -93,7 +93,7 @@ func TestVerifyBatchedVoucherTypedData_RoutesToPayerWhenAuthorizerEmpty(t *testi
 		},
 	}
 	_, err := VerifyBatchedVoucherTypedData(context.Background(), signer,
-		"0xabcd", "100", "", "0xpayer", "0xdead", chainID())
+		testErc3009ChannelId, "100", "", "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "0xdead", chainID())
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}

@@ -89,7 +89,7 @@ func TestVerifySignatureStrict_EOA_WrongAddress(t *testing.T) {
 
 func TestVerifySignatureStrict_Contract_1271AcceptsReturnsTrue(t *testing.T) {
 	mock := &mockStrictSigner{
-		code:             []byte{0x60, 0x80}, // has code → EIP-1271 path
+		code:             []byte{0x60, 0x80},              // has code → EIP-1271 path
 		isValidSigResult: [4]byte{0x16, 0x26, 0xba, 0x7e}, // magic value — delegate accepts
 	}
 	var hash32 [32]byte

@@ -32,12 +32,9 @@ func VerifySignatureStrict(
 		return false, fmt.Errorf("VerifySignatureStrict: GetCode failed: %w", err)
 	}
 	if len(code) == 0 {
-		// EOA path: pure ecrecover. Must be exactly 65 bytes.
-		signerAddr := common.HexToAddress(address)
-		valid, verErr := VerifyEOASignature(hash[:], signature, signerAddr)
-		if verErr != nil {
-			return false, nil
-		}
+		// EOA path: pure ecrecover. A malformed or unrecoverable signature is simply
+		// invalid (false), not a system error — discard the verification error.
+		valid, _ := VerifyEOASignature(hash[:], signature, common.HexToAddress(address))
 		return valid, nil
 	}
 	// Has code (contract or ERC-7702 delegation): strict EIP-1271, no ECDSA fallback.
@@ -121,7 +118,7 @@ func VerifyTypedDataStrict(
 ) (bool, error) {
 	hash, err := HashEIP712TypedData(domain, types, primaryType, message)
 	if err != nil {
-		return false, nil // malformed typed data — treat as invalid
+		return false, err
 	}
 	return VerifySignatureStrict(ctx, signer, address, hash, signature)
 }
@@ -139,7 +136,7 @@ func VerifyEOATypedData(
 ) (bool, error) {
 	hash, err := HashEIP712TypedData(domain, types, primaryType, message)
 	if err != nil {
-		return false, nil
+		return false, err
 	}
 	if len(signature) != 65 {
 		return false, nil
@@ -153,7 +150,7 @@ func VerifyEOATypedData(
 	sig[64] = v
 	pub, err2 := crypto.SigToPub(hash[:], sig)
 	if err2 != nil {
-		return false, nil
+		return false, err2
 	}
 	recovered := crypto.PubkeyToAddress(*pub)
 	return recovered == common.HexToAddress(address), nil
