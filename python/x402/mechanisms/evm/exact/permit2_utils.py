@@ -48,6 +48,7 @@ from ..constants import (  # noqa: E402
 )
 from ..erc6492 import parse_erc6492_signature  # noqa: E402
 from ..signer import ClientEvmSigner, FacilitatorEvmSigner  # noqa: E402
+from ..verify import verify_typed_data_strict  # noqa: E402
 from ..types import (  # noqa: E402
     ExactPermit2Authorization,
     ExactPermit2Payload,
@@ -739,7 +740,9 @@ def _verify_permit2_signature(
         permit2_authorization, chain_id
     )
 
-    return signer.verify_typed_data(
+    # Uses the strict primitive that mirrors on-chain SignatureChecker (code-routed, no ECDSA fallback).
+    return verify_typed_data_strict(
+        signer,
         payer,
         domain_dict,  # type: ignore[arg-type]
         typed_fields,

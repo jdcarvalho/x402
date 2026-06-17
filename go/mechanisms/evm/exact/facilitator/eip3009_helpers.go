@@ -348,8 +348,9 @@ func ExecuteTransferWithAuthorization(
 	)
 }
 
-// DeploySmartWallet sends the ERC-6492 factory deployment transaction when enabled.
-func DeploySmartWallet(
+// SendDeployTransaction submits the ERC-6492 factory deployment transaction and waits
+// for the receipt, returning an error if the deployment transaction reverted.
+func SendDeployTransaction(
 	ctx context.Context,
 	signer evm.FacilitatorEvmSigner,
 	sigData *evm.ERC6492SignatureData,
@@ -369,7 +370,7 @@ func DeploySmartWallet(
 
 	receipt, err := signer.WaitForTransactionReceipt(ctx, txHash)
 	if err != nil {
-		return fmt.Errorf("failed to wait for deployment: %w", err)
+		return fmt.Errorf("failed to wait for deployment receipt: %w", err)
 	}
 	if receipt.Status != evm.TxStatusSuccess {
 		return fmt.Errorf("deployment transaction reverted")
