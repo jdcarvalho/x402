@@ -59,7 +59,6 @@ from ..exact.permit2_utils import (  # noqa: E402
     _verify_permit2_allowance,
 )
 from ..signer import FacilitatorEvmSigner  # noqa: E402
-from ..verify import verify_typed_data_strict  # noqa: E402
 from ..types import (  # noqa: E402
     TypedDataField,
     UptoPermit2Payload,
@@ -69,6 +68,7 @@ from ..utils import (  # noqa: E402
     hex_to_bytes,
     normalize_address,
 )
+from ..verify import verify_typed_data_strict  # noqa: E402
 
 
 def verify_upto_permit2(

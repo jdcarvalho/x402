@@ -26,8 +26,6 @@ Required env vars (set in python/x402/.env):
 from __future__ import annotations
 
 import os
-import time
-import random
 
 import pytest
 from eth_account import Account
@@ -35,19 +33,14 @@ from web3 import Web3
 
 from x402 import x402ClientSync, x402FacilitatorSync, x402ResourceServerSync
 from x402.mechanisms.evm import SCHEME_EXACT
+from x402.mechanisms.evm.erc7702 import is_erc7702_delegation
 from x402.mechanisms.evm.exact import (
     ExactEvmClientScheme,
     ExactEvmFacilitatorScheme,
     ExactEvmSchemeConfig,
     ExactEvmServerScheme,
 )
-from x402.mechanisms.evm.erc7702 import is_erc7702_delegation
 from x402.mechanisms.evm.signers import EthAccountSigner, FacilitatorWeb3Signer
-from x402.tests.integrations._smart_accounts import (
-    NEXUS_K1_VALIDATOR,
-    CoinbaseSmartWalletSigner,
-    NexusSmartAccountSigner,
-)
 from x402.schemas import (
     PaymentPayload,
     PaymentRequirements,
@@ -55,6 +48,11 @@ from x402.schemas import (
     SettleResponse,
     SupportedResponse,
     VerifyResponse,
+)
+from x402.tests.integrations._smart_accounts import (
+    NEXUS_K1_VALIDATOR,
+    CoinbaseSmartWalletSigner,
+    NexusSmartAccountSigner,
 )
 
 FACILITATOR_KEY = os.environ.get("EVM_FACILITATOR_PRIVATE_KEY")
@@ -218,7 +216,7 @@ class TestWalletMatrix7579:
 class TestWalletMatrixD:
     """Wallet D — ERC-7702 EOA delegated to PermissiveECDSADelegate."""
 
-    def _require_7702_delegation(self) -> "Account":
+    def _require_7702_delegation(self) -> Account:
         if not KEY_7702 or not RESOURCE_SERVER:
             pytest.skip("EVM_CLIENT_7702_PRIVATE_KEY / EVM_RESOURCE_SERVER_ADDRESS required")
         w3 = Web3(Web3.HTTPProvider(RPC_URL))

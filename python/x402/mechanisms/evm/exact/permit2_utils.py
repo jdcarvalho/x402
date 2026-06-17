@@ -48,7 +48,6 @@ from ..constants import (  # noqa: E402
 )
 from ..erc6492 import parse_erc6492_signature  # noqa: E402
 from ..signer import ClientEvmSigner, FacilitatorEvmSigner  # noqa: E402
-from ..verify import verify_typed_data_strict  # noqa: E402
 from ..types import (  # noqa: E402
     ExactPermit2Authorization,
     ExactPermit2Payload,
@@ -62,6 +61,7 @@ from ..utils import (  # noqa: E402
     hex_to_bytes,
     normalize_address,
 )
+from ..verify import verify_typed_data_strict  # noqa: E402
 
 
 def create_permit2_payload(

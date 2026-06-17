@@ -2,8 +2,6 @@
 
 from unittest.mock import MagicMock
 
-import pytest
-
 from x402.mechanisms.evm.types import TypedDataDomain, TypedDataField
 from x402.mechanisms.evm.verify import verify_typed_data_strict
 
@@ -47,7 +45,6 @@ class TestVerifyTypedDataStrict:
     def test_eoa_valid_sig(self):
         """Plain EOA with valid ECDSA signature → accepted without on-chain call."""
         from eth_account import Account
-        from eth_account.messages import encode_typed_data
 
         acct = Account.from_key("0x" + "a" * 64)
         typed = {

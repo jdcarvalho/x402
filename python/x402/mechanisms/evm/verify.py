@@ -1,8 +1,8 @@
 """Universal signature verification for EOA, EIP-1271, and ERC-6492."""
 
 try:
-    from eth_keys import keys
     from eth_account.messages import encode_typed_data as _encode_typed_data
+    from eth_keys import keys
     from eth_utils import keccak
 except ImportError as e:
     raise ImportError(
@@ -11,7 +11,7 @@ except ImportError as e:
 from typing import Any
 
 from .constants import EIP1271_MAGIC_VALUE, IS_VALID_SIGNATURE_ABI
-from .erc6492 import has_deployment_info, is_eoa_signature, parse_erc6492_signature
+from .erc6492 import has_deployment_info, parse_erc6492_signature
 from .signer import FacilitatorEvmSigner
 from .types import ERC6492SignatureData, TypedDataDomain, TypedDataField
 
