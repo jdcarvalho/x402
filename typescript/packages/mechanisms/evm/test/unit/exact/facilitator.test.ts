@@ -939,7 +939,10 @@ describe("ExactEvmScheme (Facilitator)", () => {
         return Promise.resolve(BigInt("10000000"));
       });
 
-      const result = await cfFacilitator.verify(makeERC6492Payload(erc6492Sig), erc6492Requirements);
+      const result = await cfFacilitator.verify(
+        makeERC6492Payload(erc6492Sig),
+        erc6492Requirements,
+      );
 
       expect(result.isValid).toBe(true);
       expect(result.payer).toBe(erc6492Payer);
@@ -960,7 +963,10 @@ describe("ExactEvmScheme (Facilitator)", () => {
         return Promise.resolve(BigInt("10000000"));
       });
 
-      const result = await cfFacilitator.verify(makeERC6492Payload(erc6492Sig), erc6492Requirements);
+      const result = await cfFacilitator.verify(
+        makeERC6492Payload(erc6492Sig),
+        erc6492Requirements,
+      );
 
       expect(result.isValid).toBe(true);
       expect(result.payer).toBe(erc6492Payer);
@@ -983,7 +989,10 @@ describe("ExactEvmScheme (Facilitator)", () => {
         return Promise.resolve(BigInt("10000000"));
       });
 
-      const result = await cfFacilitator.verify(makeERC6492Payload(erc6492Sig), erc6492Requirements);
+      const result = await cfFacilitator.verify(
+        makeERC6492Payload(erc6492Sig),
+        erc6492Requirements,
+      );
 
       expect(result.isValid).toBe(true);
       expect(result.payer).toBe(erc6492Payer);
@@ -1015,7 +1024,10 @@ describe("ExactEvmScheme (Facilitator)", () => {
         ]);
       });
 
-      const result = await cfFacilitator.verify(makeERC6492Payload(erc6492Sig), erc6492Requirements);
+      const result = await cfFacilitator.verify(
+        makeERC6492Payload(erc6492Sig),
+        erc6492Requirements,
+      );
 
       expect(result.isValid).toBe(false);
     });
@@ -1046,7 +1058,10 @@ describe("ExactEvmScheme (Facilitator)", () => {
         ]);
       });
 
-      const result = await cfFacilitator.verify(makeERC6492Payload(erc6492Sig), erc6492Requirements);
+      const result = await cfFacilitator.verify(
+        makeERC6492Payload(erc6492Sig),
+        erc6492Requirements,
+      );
 
       expect(result.isValid).toBe(false);
       expect(result.payer).toBe(erc6492Payer);
@@ -1163,7 +1178,10 @@ describe("ExactEvmScheme (Facilitator)", () => {
         return Promise.resolve(undefined);
       });
 
-      const result = await cfFacilitator.verify(makeERC6492Payload(erc6492Sig), erc6492Requirements);
+      const result = await cfFacilitator.verify(
+        makeERC6492Payload(erc6492Sig),
+        erc6492Requirements,
+      );
 
       expect(result.isValid).toBe(true);
       expect(result.payer).toBe(erc6492Payer);
@@ -1176,7 +1194,10 @@ describe("ExactEvmScheme (Facilitator)", () => {
         .fn()
         .mockRejectedValue(new Error("execution reverted"));
 
-      const result = await cfFacilitator.verify(makeERC6492Payload(erc6492Sig), erc6492Requirements);
+      const result = await cfFacilitator.verify(
+        makeERC6492Payload(erc6492Sig),
+        erc6492Requirements,
+      );
 
       // The strict primitive treats a reverted isValidSignature call as "rejected"
       // (no ECDSA fallback, no simulation second-chance). Pre-verify outcome now
