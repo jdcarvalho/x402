@@ -419,7 +419,10 @@ class TestVerify:
             code=b"",
             multicall_results=[(True, b""), (True, b"")],
         )
-        facilitator = ExactEvmFacilitatorScheme(signer)
+        # Verify now mirrors settle's allowlist gate, so the factory must be allowlisted.
+        facilitator = ExactEvmFacilitatorScheme(
+            signer, ExactEvmSchemeConfig(eip6492_allowed_factories=[FACTORY])
+        )
 
         result = facilitator.verify(
             make_payment_payload(signature=make_erc6492_signature(b"\x33" * 66)),
@@ -435,7 +438,9 @@ class TestVerify:
             code=b"",
             multicall_results=[(True, b""), (False, b"")],
         )
-        facilitator = ExactEvmFacilitatorScheme(signer)
+        facilitator = ExactEvmFacilitatorScheme(
+            signer, ExactEvmSchemeConfig(eip6492_allowed_factories=[FACTORY])
+        )
 
         result = facilitator.verify(
             make_payment_payload(signature=make_erc6492_signature(b"\x33" * 66)),
@@ -444,6 +449,24 @@ class TestVerify:
 
         assert result.is_valid is False
         assert result.invalid_reason == ERR_TRANSACTION_SIMULATION_FAILED
+
+    def test_undeployed_erc6492_rejects_when_factory_not_allowlisted(self):
+        # Verify must mirror settle: a counterfactual payment whose factory is not in the
+        # allowlist is rejected before simulation, just as settle would refuse to deploy it.
+        signer = MockFacilitatorSigner(
+            typed_data_valid=False,
+            code=b"",
+            multicall_results=[(True, b""), (True, b"")],
+        )
+        facilitator = ExactEvmFacilitatorScheme(signer)  # empty allowlist
+
+        result = facilitator.verify(
+            make_payment_payload(signature=make_erc6492_signature(b"\x33" * 66)),
+            make_requirements(),
+        )
+
+        assert result.is_valid is False
+        assert result.invalid_reason == ERR_FACTORY_NOT_ALLOWED
 
     def test_undeployed_smart_wallet_without_deployment_info_is_rejected(self):
         signer = MockFacilitatorSigner(typed_data_valid=False, code=b"")

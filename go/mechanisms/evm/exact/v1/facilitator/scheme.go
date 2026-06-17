@@ -210,6 +210,14 @@ func (f *ExactEvmSchemeV1) verify(
 		return nil, x402.NewVerifyError(ErrInvalidSignature, evmPayload.Authorization.From, "invalid signature")
 	}
 
+	// Counterfactual ERC-6492 wallet: settle deploys via the factory, gated by the
+	// allowlist. Enforce the same gate here so verify mirrors settle.
+	if !classification.Valid && classification.IsUndeployed && exactfacilitator.HasEIP6492Deployment(classification.SigData) {
+		if !evm.IsFactoryAllowed(classification.SigData.Factory, f.config.EIP6492AllowedFactories) {
+			return nil, x402.NewVerifyError(ErrFactoryNotAllowed, evmPayload.Authorization.From, "factory not in EIP6492AllowedFactories allowlist")
+		}
+	}
+
 	if simulate {
 		simulationSucceeded, err := exactfacilitator.SimulateEIP3009Transfer(
 			ctx,
@@ -290,7 +298,7 @@ func (f *ExactEvmSchemeV1) Settle(
 		}
 
 		if len(code) == 0 {
-			if !exactfacilitator.IsFactoryAllowed(sigData.Factory, f.config.EIP6492AllowedFactories) {
+			if !evm.IsFactoryAllowed(sigData.Factory, f.config.EIP6492AllowedFactories) {
 				return nil, x402.NewSettleError(ErrFactoryNotAllowed, verifyResp.Payer, network, "", "")
 			}
 
@@ -305,7 +313,13 @@ func (f *ExactEvmSchemeV1) Settle(
 				return nil, x402.NewSettleError(ErrInvalidPayload, verifyResp.Payer, network, "", err.Error())
 			}
 			innerOnly := &evm.ERC6492SignatureData{InnerSignature: sigData.InnerSignature}
-			if ok, _ := exactfacilitator.SimulateEIP3009Transfer(ctx, f.signer, tokenAddress, parsedForSim, innerOnly); !ok {
+			ok, simErr := exactfacilitator.SimulateEIP3009Transfer(ctx, f.signer, tokenAddress, parsedForSim, innerOnly)
+			if !ok {
+				// Wallet is deployed; only a genuine revert means the validator rejects the
+				// inner sig. A transport/RPC failure must not be reported as "signature unsupported".
+				if simErr != nil && !evm.IsContractRevert(simErr) {
+					return nil, x402.NewSettleError(exactfacilitator.ErrEip3009SimulationFailed, verifyResp.Payer, network, "", simErr.Error())
+				}
 				return nil, x402.NewSettleError(
 					exactfacilitator.ErrDeployedInnerWalletSignatureUnsupported,
 					verifyResp.Payer, network, "",

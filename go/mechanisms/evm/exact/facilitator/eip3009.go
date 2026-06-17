@@ -104,6 +104,15 @@ func (f *ExactEvmScheme) verifyEIP3009(
 		return nil, x402.NewVerifyError(ErrInvalidSignature, evmPayload.Authorization.From, fmt.Sprintf("invalid signature: %s", evmPayload.Signature))
 	}
 
+	// Counterfactual ERC-6492 wallet: settle deploys via the factory, gated by the
+	// allowlist. Enforce the same gate here so verify mirrors settle (a payment that
+	// settle rejects with ErrFactoryNotAllowed must not verify as valid).
+	if !classification.Valid && classification.IsUndeployed && HasEIP6492Deployment(classification.SigData) {
+		if !evm.IsFactoryAllowed(classification.SigData.Factory, f.config.EIP6492AllowedFactories) {
+			return nil, x402.NewVerifyError(ErrFactoryNotAllowed, evmPayload.Authorization.From, "factory not in EIP6492AllowedFactories allowlist")
+		}
+	}
+
 	if errReason, err := evm.ValidateAssetIsContract(ctx, f.signer, requirements.Asset); err != nil {
 		return nil, fmt.Errorf("asset contract check failed: %w", err)
 	} else if errReason != "" {
@@ -183,7 +192,7 @@ func (f *ExactEvmScheme) settleEIP3009(
 		}
 
 		if len(code) == 0 {
-			if !IsFactoryAllowed(sigData.Factory, f.config.EIP6492AllowedFactories) {
+			if !evm.IsFactoryAllowed(sigData.Factory, f.config.EIP6492AllowedFactories) {
 				return nil, x402.NewSettleError(ErrFactoryNotAllowed, verifyResp.Payer, network, "", "")
 			}
 
@@ -198,7 +207,14 @@ func (f *ExactEvmScheme) settleEIP3009(
 				return nil, x402.NewSettleError(ErrInvalidPayload, verifyResp.Payer, network, "", err.Error())
 			}
 			innerOnly := &evm.ERC6492SignatureData{InnerSignature: sigData.InnerSignature}
-			if ok, _ := SimulateEIP3009Transfer(ctx, f.signer, tokenAddress, parsedForSim, innerOnly); !ok {
+			ok, simErr := SimulateEIP3009Transfer(ctx, f.signer, tokenAddress, parsedForSim, innerOnly)
+			if !ok {
+				// The wallet is deployed at this point. Only a genuine contract revert means
+				// its validator rejects the inner sig; a transport/RPC failure must not be
+				// reported as "signature unsupported".
+				if simErr != nil && !evm.IsContractRevert(simErr) {
+					return nil, x402.NewSettleError(ErrEip3009SimulationFailed, verifyResp.Payer, network, "", simErr.Error())
+				}
 				return nil, x402.NewSettleError(ErrDeployedInnerWalletSignatureUnsupported, verifyResp.Payer, network, "", MsgDeployedInnerWalletSignatureUnsupported)
 			}
 		}

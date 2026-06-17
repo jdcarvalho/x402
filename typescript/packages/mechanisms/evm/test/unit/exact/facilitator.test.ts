@@ -901,6 +901,29 @@ describe("ExactEvmScheme (Facilitator)", () => {
       };
     }
 
+    // Verify now mirrors settle's allowlist gate, so the simulation-path tests below must
+    // construct a facilitator that allowlists `factory` (an undeployed payer whose factory is
+    // not allowlisted is rejected before simulation — covered by its own test).
+    let cfFacilitator: ExactEvmScheme;
+    beforeEach(() => {
+      cfFacilitator = new ExactEvmScheme(mockFacilitatorSigner, {
+        eip6492AllowedFactories: [factory],
+      });
+    });
+
+    it("rejects a counterfactual payment whose factory is not allowlisted (verify mirrors settle)", async () => {
+      mockFacilitatorSigner.getCode = vi
+        .fn()
+        .mockImplementation(mockGetCodeEOAPayer("0x036CbD53842c5426634e7929541eC2318f3dCF7e"));
+
+      // Default `facilitator` has an empty allowlist.
+      const result = await facilitator.verify(makeERC6492Payload(erc6492Sig), erc6492Requirements);
+
+      expect(result.isValid).toBe(false);
+      expect(result.invalidReason).toBe(Errors.ErrFactoryNotAllowed);
+      expect(result.payer).toBe(erc6492Payer);
+    });
+
     it("should accept ERC-6492 when verifyTypedData returns true and simulation passes", async () => {
       mockFacilitatorSigner.verifyTypedData = vi.fn().mockResolvedValue(true);
       mockFacilitatorSigner.getCode = vi
@@ -916,7 +939,7 @@ describe("ExactEvmScheme (Facilitator)", () => {
         return Promise.resolve(BigInt("10000000"));
       });
 
-      const result = await facilitator.verify(makeERC6492Payload(erc6492Sig), erc6492Requirements);
+      const result = await cfFacilitator.verify(makeERC6492Payload(erc6492Sig), erc6492Requirements);
 
       expect(result.isValid).toBe(true);
       expect(result.payer).toBe(erc6492Payer);
@@ -937,7 +960,7 @@ describe("ExactEvmScheme (Facilitator)", () => {
         return Promise.resolve(BigInt("10000000"));
       });
 
-      const result = await facilitator.verify(makeERC6492Payload(erc6492Sig), erc6492Requirements);
+      const result = await cfFacilitator.verify(makeERC6492Payload(erc6492Sig), erc6492Requirements);
 
       expect(result.isValid).toBe(true);
       expect(result.payer).toBe(erc6492Payer);
@@ -960,7 +983,7 @@ describe("ExactEvmScheme (Facilitator)", () => {
         return Promise.resolve(BigInt("10000000"));
       });
 
-      const result = await facilitator.verify(makeERC6492Payload(erc6492Sig), erc6492Requirements);
+      const result = await cfFacilitator.verify(makeERC6492Payload(erc6492Sig), erc6492Requirements);
 
       expect(result.isValid).toBe(true);
       expect(result.payer).toBe(erc6492Payer);
@@ -992,7 +1015,7 @@ describe("ExactEvmScheme (Facilitator)", () => {
         ]);
       });
 
-      const result = await facilitator.verify(makeERC6492Payload(erc6492Sig), erc6492Requirements);
+      const result = await cfFacilitator.verify(makeERC6492Payload(erc6492Sig), erc6492Requirements);
 
       expect(result.isValid).toBe(false);
     });
@@ -1023,11 +1046,16 @@ describe("ExactEvmScheme (Facilitator)", () => {
         ]);
       });
 
-      const result = await facilitator.verify(makeERC6492Payload(erc6492Sig), erc6492Requirements);
+      const result = await cfFacilitator.verify(makeERC6492Payload(erc6492Sig), erc6492Requirements);
 
       expect(result.isValid).toBe(false);
       expect(result.payer).toBe(erc6492Payer);
     });
+
+    // 66-byte inner sig avoids the ECDSA (65-byte) branch, so the post-deploy simulation takes
+    // the bytes-overload path and the readContract mock's rejection is what fails the sim.
+    const nonEcdsaInnerSig = ("0x" + "cc".repeat(66)) as `0x${string}`;
+    const nonEcdsaErc6492Sig = makeERC6492Sig(factory, factoryCalldata, nonEcdsaInnerSig);
 
     it("settle returns ErrDeployedInnerWalletSignatureUnsupported when the deployed wallet rejects the inner sig", async () => {
       // Counterfactual wallet whose validator/plugin is not installed by the factory:
@@ -1045,7 +1073,7 @@ describe("ExactEvmScheme (Facilitator)", () => {
       mockFacilitatorSigner.waitForTransactionReceipt = vi
         .fn()
         .mockResolvedValue({ status: "success" });
-      // Post-deploy transfer simulation reverts → simulateEip3009Transfer returns false.
+      // Post-deploy transfer simulation reverts → classified as a signature rejection.
       mockFacilitatorSigner.readContract = rcWithSig(
         ({ functionName }: { functionName?: string }) => {
           if (functionName === "transferWithAuthorization") {
@@ -1056,7 +1084,7 @@ describe("ExactEvmScheme (Facilitator)", () => {
       );
 
       const result = await facilitatorWithFactory.settle(
-        makeERC6492Payload(erc6492Sig),
+        makeERC6492Payload(nonEcdsaErc6492Sig),
         erc6492Requirements,
       );
 
@@ -1064,6 +1092,39 @@ describe("ExactEvmScheme (Facilitator)", () => {
       expect(result.errorReason).toBe(Errors.ErrDeployedInnerWalletSignatureUnsupported);
       expect(result.errorMessage).toBe(Errors.DeployedInnerWalletSignatureUnsupportedMessage);
       // No transfer was submitted (only the deploy tx) — the doomed transfer was caught.
+      expect(result.transaction).toBe("");
+    });
+
+    it("settle returns the generic simulation-failed reason when post-deploy sim hits an RPC error (not a revert)", async () => {
+      // Deployment succeeds, but the post-deploy simulation fails with a transport/RPC error
+      // (no revert). That is NOT a signature problem, so settle must surface the generic
+      // simulation-failed reason rather than the misleading "signature unsupported" guidance.
+      const facilitatorWithFactory = new ExactEvmScheme(mockFacilitatorSigner, {
+        eip6492AllowedFactories: [factory],
+      });
+      mockFacilitatorSigner.getCode = vi
+        .fn()
+        .mockImplementation(mockGetCodeEOAPayer(erc6492Requirements.asset));
+      mockFacilitatorSigner.sendTransaction = vi.fn().mockResolvedValue("0xdeploytx");
+      mockFacilitatorSigner.waitForTransactionReceipt = vi
+        .fn()
+        .mockResolvedValue({ status: "success" });
+      mockFacilitatorSigner.readContract = rcWithSig(
+        ({ functionName }: { functionName?: string }) => {
+          if (functionName === "transferWithAuthorization") {
+            return Promise.reject(new Error("HTTP request failed: 503 Service Unavailable"));
+          }
+          return Promise.resolve(BigInt("10000000"));
+        },
+      );
+
+      const result = await facilitatorWithFactory.settle(
+        makeERC6492Payload(nonEcdsaErc6492Sig),
+        erc6492Requirements,
+      );
+
+      expect(result.success).toBe(false);
+      expect(result.errorReason).toBe(Errors.ErrEip3009SimulationFailed);
       expect(result.transaction).toBe("");
     });
 
@@ -1102,7 +1163,7 @@ describe("ExactEvmScheme (Facilitator)", () => {
         return Promise.resolve(undefined);
       });
 
-      const result = await facilitator.verify(makeERC6492Payload(erc6492Sig), erc6492Requirements);
+      const result = await cfFacilitator.verify(makeERC6492Payload(erc6492Sig), erc6492Requirements);
 
       expect(result.isValid).toBe(true);
       expect(result.payer).toBe(erc6492Payer);
@@ -1115,7 +1176,7 @@ describe("ExactEvmScheme (Facilitator)", () => {
         .fn()
         .mockRejectedValue(new Error("execution reverted"));
 
-      const result = await facilitator.verify(makeERC6492Payload(erc6492Sig), erc6492Requirements);
+      const result = await cfFacilitator.verify(makeERC6492Payload(erc6492Sig), erc6492Requirements);
 
       // The strict primitive treats a reverted isValidSignature call as "rejected"
       // (no ECDSA fallback, no simulation second-chance). Pre-verify outcome now

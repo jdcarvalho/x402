@@ -7,6 +7,7 @@ import {
 } from "@x402/core/types";
 import { getAddress, parseErc6492Signature, isAddressEqual } from "viem";
 import { FacilitatorEvmSigner } from "../../signer";
+import { isContractRevert } from "../../shared/revert";
 import type { TransactionRequest } from "../../exact/extensions";
 import { BatchSettlementAssetTransferMethod, BatchSettlementDepositPayload } from "../types";
 import { batchSettlementABI, erc20BalanceOfABI } from "../abi";
@@ -684,7 +685,19 @@ async function deployErc3009CounterfactualIfNeeded(
         collectorData,
       ],
     });
-  } catch {
+  } catch (e) {
+    // Wallet is deployed; only a genuine revert means its validator rejects the inner sig.
+    // A transport/RPC failure must not be reported as "signature unsupported".
+    if (!isContractRevert(e)) {
+      return {
+        success: false,
+        errorReason: Errors.ErrDepositSimulationFailed,
+        errorMessage: e instanceof Error ? e.message : String(e),
+        transaction: "",
+        network: requirements.network,
+        payer,
+      };
+    }
     return {
       success: false,
       errorReason: Errors.ErrDeployedInnerWalletSignatureUnsupported,

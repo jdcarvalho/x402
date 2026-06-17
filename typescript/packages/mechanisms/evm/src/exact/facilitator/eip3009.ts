@@ -18,7 +18,9 @@ import {
   executeTransferWithAuthorization,
   parseEip3009TransferError,
   simulateEip3009Transfer,
+  simulateEip3009TransferResult,
 } from "./eip3009-utils";
+import { isContractRevert } from "../../shared/revert";
 
 export interface VerifyEIP3009Options {
   /** Run onchain simulation. Defaults to true. */
@@ -54,6 +56,8 @@ export interface EIP3009FacilitatorConfig {
  * @param requirements - The payment requirements
  * @param eip3009Payload - The EIP-3009 specific payload
  * @param options - Optional verification options
+ * @param allowedFactories - Allowlisted ERC-6492 factory addresses; a counterfactual payment whose
+ *   factory is not in this list is rejected here so verify mirrors settle's policy gate.
  * @returns Promise resolving to verification response
  */
 export async function verifyEIP3009(
@@ -62,6 +66,7 @@ export async function verifyEIP3009(
   requirements: PaymentRequirements,
   eip3009Payload: ExactEIP3009Payload,
   options?: VerifyEIP3009Options,
+  allowedFactories: string[] = [],
 ): Promise<VerifyResponse> {
   const payer = eip3009Payload.authorization.from;
   let eip6492Deployment:
@@ -130,6 +135,22 @@ export async function verifyEIP3009(
 
   if (classification6492) {
     eip6492Deployment = classification6492;
+  }
+
+  if (isCounterfactual) {
+    // Counterfactual deposits are deployed by settle via the factory, which is gated by the
+    // allowlist. Enforce the same gate here so verify does not return isValid:true for a payment
+    // that settle will reject with ErrFactoryNotAllowed (verify must predict settle).
+    const factory = classification6492?.factoryAddress;
+    const factoryAllowed =
+      !!factory && allowedFactories.some(a => a.trim().toLowerCase() === factory.toLowerCase());
+    if (!factoryAllowed) {
+      return {
+        isValid: false,
+        invalidReason: Errors.ErrFactoryNotAllowed,
+        payer,
+      };
+    }
   }
 
   if (!isCounterfactual) {
@@ -247,9 +268,14 @@ export async function settleEIP3009(
   const payer = eip3009Payload.authorization.from;
 
   // Re-verify before settling
-  const valid = await verifyEIP3009(signer, payload, requirements, eip3009Payload, {
-    simulate: config.simulateInSettle ?? false,
-  });
+  const valid = await verifyEIP3009(
+    signer,
+    payload,
+    requirements,
+    eip3009Payload,
+    { simulate: config.simulateInSettle ?? false },
+    config.eip6492AllowedFactories ?? [],
+  );
   if (!valid.isValid) {
     return {
       success: false,
@@ -319,13 +345,28 @@ export async function settleEIP3009(
         // factory-deployed wallet may reject the inner sig. Simulate before paying gas.
         const innerSigForSimulation = erc6492InnerSig ?? eip3009Payload.signature!;
         const postDeployPayload = { ...eip3009Payload, signature: innerSigForSimulation };
-        const postDeploySimOk = await simulateEip3009Transfer(
+        const postDeploySim = await simulateEip3009TransferResult(
           signer,
           getAddress(requirements.asset),
           postDeployPayload,
           // No eip6492Deployment: wallet is already deployed, simulate transfer only.
         );
-        if (!postDeploySimOk) {
+        if (!postDeploySim.ok) {
+          // Wallet is deployed; only a genuine revert means its validator rejects the inner
+          // sig. A transport/RPC failure must not be reported as "signature unsupported".
+          if (postDeploySim.error !== undefined && !isContractRevert(postDeploySim.error)) {
+            return {
+              success: false,
+              errorReason: Errors.ErrEip3009SimulationFailed,
+              errorMessage:
+                postDeploySim.error instanceof Error
+                  ? postDeploySim.error.message
+                  : String(postDeploySim.error),
+              transaction: "",
+              network: payload.accepted.network,
+              payer,
+            };
+          }
           return {
             success: false,
             errorReason: Errors.ErrDeployedInnerWalletSignatureUnsupported,

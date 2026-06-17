@@ -19,6 +19,7 @@ from ...constants import (
     ERR_RECIPIENT_MISMATCH,
     ERR_SMART_WALLET_DEPLOYMENT_FAILED,
     ERR_TRANSACTION_FAILED,
+    ERR_TRANSACTION_SIMULATION_FAILED,
     ERR_UNDEPLOYED_SMART_WALLET,
     ERR_UNSUPPORTED_SCHEME,
     ERR_VALID_AFTER_FUTURE,
@@ -30,7 +31,7 @@ from ...constants import (
 from ...erc6492 import has_deployment_info, parse_erc6492_signature
 from ...signer import FacilitatorEvmSigner
 from ...types import ERC6492SignatureData, ExactEIP3009Payload
-from ...utils import bytes_to_hex, hex_to_bytes, normalize_address
+from ...utils import bytes_to_hex, hex_to_bytes, is_contract_revert, normalize_address
 from ...v1.utils import get_evm_chain_id
 from ..eip3009_utils import (
     classify_eip3009_signature,
@@ -39,6 +40,7 @@ from ..eip3009_utils import (
     parse_eip3009_authorization,
     parse_eip3009_transfer_error,
     simulate_eip3009_transfer,
+    simulate_eip3009_transfer_result,
 )
 
 
@@ -240,6 +242,21 @@ class ExactEvmSchemeV1:
                 payer=payer,
             )
 
+        # Counterfactual ERC-6492 wallet (undeployed + carries factory deployment info):
+        # settle will deploy via the factory, which is gated by the allowlist. Enforce the
+        # same gate here so verify does not pass for a payment settle will reject.
+        if (
+            not classification.valid
+            and classification.is_undeployed
+            and has_deployment_info(classification.sig_data)
+        ):
+            factory_addr = bytes_to_hex(classification.sig_data.factory).lower()
+            allowed = {f.strip().lower() for f in self._config.eip6492_allowed_factories}
+            if factory_addr not in allowed:
+                return VerifyResponse(
+                    is_valid=False, invalid_reason=ERR_FACTORY_NOT_ALLOWED, payer=payer
+                )
+
         if not simulate:
             return VerifyResponse(is_valid=True, payer=payer)
 
@@ -359,9 +376,22 @@ class ExactEvmSchemeV1:
                     factory_calldata=b"",
                     inner_signature=sig_data.inner_signature,
                 )
-                if not simulate_eip3009_transfer(
+                sim_ok, sim_err = simulate_eip3009_transfer_result(
                     self._signer, token_address, parsed_authorization, inner_only
-                ):
+                )
+                if not sim_ok:
+                    # Wallet is deployed; only a genuine revert means its validator rejects
+                    # the inner sig. A transport/RPC failure must not be reported as
+                    # "signature unsupported".
+                    if sim_err is not None and not is_contract_revert(sim_err):
+                        return SettleResponse(
+                            success=False,
+                            error_reason=ERR_TRANSACTION_SIMULATION_FAILED,
+                            error_message=str(sim_err),
+                            network=network,
+                            payer=payer,
+                            transaction="",
+                        )
                     return SettleResponse(
                         success=False,
                         error_reason=ERR_DEPLOYED_INNER_WALLET_SIGNATURE_UNSUPPORTED,

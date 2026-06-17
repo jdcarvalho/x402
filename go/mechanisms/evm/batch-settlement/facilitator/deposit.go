@@ -16,20 +16,25 @@ import (
 	"github.com/x402-foundation/x402/go/v2/types"
 )
 
-// resolveDepositTransferMethod inspects the payload + requirements to pick the
-// deposit transport. Defaults to ERC-3009; callers opt into Permit2 by setting
-// `accepts.extra.assetTransferMethod` or by sending a Permit2 authorization.
+// resolveDepositTransferMethod inspects the requirements + payload to pick the
+// deposit transport. The resource server's `accepts.extra.assetTransferMethod`
+// hint is authoritative when present; otherwise we fall back to the payload
+// shape (a Permit2 authorization implies Permit2), defaulting to ERC-3009.
+//
+// Precedence is requirements-hint-first to match the TypeScript and Python SDKs
+// (see deposit.ts / deposit.py `resolveDepositTransferMethod`); routing the same
+// request differently per SDK would let a payment verify on one and revert on another.
 func resolveDepositTransferMethod(
 	payload *batchsettlement.BatchSettlementDepositPayload,
 	requirements types.PaymentRequirements,
 ) batchsettlement.AssetTransferMethod {
-	if payload.Deposit.Authorization.Permit2Authorization != nil {
-		return batchsettlement.AssetTransferMethodPermit2
-	}
 	if requirements.Extra != nil {
 		if v, ok := requirements.Extra["assetTransferMethod"].(string); ok && v != "" {
 			return batchsettlement.AssetTransferMethod(v)
 		}
+	}
+	if payload.Deposit.Authorization.Permit2Authorization != nil {
+		return batchsettlement.AssetTransferMethodPermit2
 	}
 	return batchsettlement.AssetTransferMethodEip3009
 }
@@ -749,9 +754,15 @@ func deployErc3009CounterfactualIfNeeded(
 	// Post-deploy: some ERC-7579 / Kernel wallets install validators lazily, so the
 	// freshly deployed wallet may reject the inner sig. Simulate the deposit (the wallet
 	// now has code) before paying gas on a doomed deposit.
-	if ok, _ := simulateDeployedErc3009Deposit(
+	ok, simErr := simulateDeployedErc3009Deposit(
 		ctx, signer, configTuple, depositAmount, collectorAddr, collectorData,
-	); !ok {
+	)
+	if !ok {
+		// Wallet is deployed; only a genuine revert means its validator rejects the inner
+		// sig. A transport/RPC failure must not be reported as "signature unsupported".
+		if simErr != nil && !evm.IsContractRevert(simErr) {
+			return x402.NewSettleError(ErrDepositSimulationFailed, "", network, config.Payer, simErr.Error())
+		}
 		return x402.NewSettleError(ErrDeployedInnerWalletSignatureUnsupported, "", network, config.Payer,
 			MsgDeployedInnerWalletSignatureUnsupported)
 	}

@@ -25,7 +25,7 @@ from ...erc6492 import has_deployment_info, parse_erc6492_signature
 from ...multicall import MulticallCall, multicall
 from ...signer import FacilitatorEvmSigner
 from ...types import ERC6492SignatureData
-from ...utils import bytes_to_hex, get_evm_chain_id
+from ...utils import bytes_to_hex, get_evm_chain_id, is_contract_revert
 from ..abi import BATCH_SETTLEMENT_ABI, ERC20_BALANCE_OF_ABI
 from ..constants import BATCH_SETTLEMENT_ADDRESS
 from ..errors import (
@@ -416,7 +416,18 @@ def _deploy_erc3009_counterfactual_if_needed(
             execution.collector,
             execution.collector_data,
         )
-    except Exception:
+    except Exception as e:
+        # Wallet is deployed; only a genuine revert means its validator rejects the inner
+        # sig. A transport/RPC failure must not be reported as "signature unsupported".
+        if not is_contract_revert(e):
+            return SettleResponse(
+                success=False,
+                error_reason=ERR_DEPOSIT_SIMULATION_FAILED,
+                error_message=str(e)[:500],
+                transaction="",
+                network=network,
+                payer=payer,
+            )
         return SettleResponse(
             success=False,
             error_reason=ERR_DEPLOYED_INNER_WALLET_SIGNATURE_UNSUPPORTED,

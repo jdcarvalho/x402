@@ -20,7 +20,9 @@ import {
   diagnoseEip3009SimulationFailure,
   executeTransferWithAuthorization,
   simulateEip3009Transfer,
+  simulateEip3009TransferResult,
 } from "../../facilitator/eip3009-utils";
+import { isContractRevert } from "../../../shared/revert";
 
 export interface VerifyV1Options {
   /** Run onchain simulation. Defaults to true. */
@@ -196,12 +198,27 @@ export class ExactEvmSchemeV1 implements SchemeNetworkFacilitator {
             ...exactEvmPayload,
             signature: innerSignature ?? exactEvmPayload.signature!,
           };
-          const postDeploySimOk = await simulateEip3009Transfer(
+          const postDeploySim = await simulateEip3009TransferResult(
             this.signer,
             getAddress(requirements.asset),
             postDeployPayload,
           );
-          if (!postDeploySimOk) {
+          if (!postDeploySim.ok) {
+            // Wallet is deployed; only a genuine revert means its validator rejects the inner
+            // sig. A transport/RPC failure must not be reported as "signature unsupported".
+            if (postDeploySim.error !== undefined && !isContractRevert(postDeploySim.error)) {
+              return {
+                success: false,
+                errorReason: Errors.ErrEip3009SimulationFailed,
+                errorMessage:
+                  postDeploySim.error instanceof Error
+                    ? postDeploySim.error.message
+                    : String(postDeploySim.error),
+                transaction: "",
+                network: payloadV1.network,
+                payer: exactEvmPayload.authorization.from,
+              };
+            }
             return {
               success: false,
               errorReason: Errors.ErrDeployedInnerWalletSignatureUnsupported,
@@ -352,6 +369,24 @@ export class ExactEvmSchemeV1 implements SchemeNetworkFacilitator {
 
     if (classification6492) {
       eip6492Deployment = classification6492;
+    }
+
+    if (isCounterfactual) {
+      // Mirror settle's allowlist gate so verify predicts settle: a counterfactual payment whose
+      // factory is not allowlisted is rejected at settle, so reject it here too.
+      const factory = classification6492?.factoryAddress;
+      const factoryAllowed =
+        !!factory &&
+        this.config.eip6492AllowedFactories.some(
+          a => a.trim().toLowerCase() === factory.toLowerCase(),
+        );
+      if (!factoryAllowed) {
+        return {
+          isValid: false,
+          invalidReason: Errors.ErrFactoryNotAllowed,
+          payer,
+        };
+      }
     }
 
     if (!isCounterfactual) {
