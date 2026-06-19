@@ -384,10 +384,18 @@ export async function settleEIP3009(
       paymentRequirements: requirements,
     });
 
+    // When the original signature was ERC-6492 wrapped (deployed wallet), use the
+    // extracted inner signature for the on-chain transferWithAuthorization call.
+    // FiatTokenV2_2's isValidSignature on the deployed contract expects the compact inner signature
+    const settlePayload =
+      erc6492InnerSig && erc6492InnerSig !== eip3009Payload.signature
+        ? { ...eip3009Payload, signature: erc6492InnerSig }
+        : eip3009Payload;
+
     const tx = await executeTransferWithAuthorization(
       signer,
       getAddress(requirements.asset),
-      eip3009Payload,
+      settlePayload,
       dataSuffix,
     );
 
