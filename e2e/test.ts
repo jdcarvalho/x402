@@ -32,6 +32,41 @@ function generateChannelSalt(): `0x${string}` {
   return toHex(bytes);
 }
 
+// ── Transient on-chain failure resilience ───────────────────────────────────
+// EVM Permit2 / gas-sponsoring / coldstart flows depend on testnet RPC state
+// (Permit2 allowance + account nonce) being visible across load-balanced nodes.
+// When that state hasn't propagated yet, the resource server's local pre-check
+// rejects the payment with a transient 402 before it ever reaches the
+// facilitator. These failures are non-deterministic (a different subset fails
+// each run) and clear on a short retry once state settles. eip3009 and non-EVM
+// flows don't exhibit this, so retries are scoped to EVM Permit2 scenarios.
+const EVM_PAYMENT_MAX_ATTEMPTS = 3;
+const EVM_PAYMENT_RETRY_DELAY_MS = 4000;
+
+/**
+ * Heuristic for whether a failed EVM payment is a transient on-chain/RPC issue
+ * worth retrying (vs a deterministic structural failure that would just repeat).
+ */
+function isTransientPaymentFailure(error?: string): boolean {
+  if (!error) return false;
+  const e = error.toLowerCase();
+  return (
+    e.includes('402') ||
+    e.includes('payment required') ||
+    e.includes('payment failed') ||
+    e.includes('nonce') ||
+    e.includes('replacement transaction') ||
+    e.includes('underpriced') ||
+    e.includes('insufficient allowance') ||
+    e.includes('timeout') ||
+    e.includes('timed out') ||
+    e.includes('econnreset') ||
+    e.includes('econnrefused') ||
+    e.includes('fetch failed') ||
+    e.includes('socket hang up')
+  );
+}
+
 /**
  * Approve Permit2 so that the standard/direct settle path can be exercised.
  * Grants unlimited Permit2 allowance for the given token (permit2-approval script default if omitted).
@@ -791,7 +826,7 @@ async function runTest() {
 
   // Apply coverage-based minimization if --min flag is set
   if (parsedArgs.minimize) {
-    filteredScenarios = minimizeScenarios(filteredScenarios);
+    filteredScenarios = minimizeScenarios(filteredScenarios, parsedArgs.seed);
 
     if (filteredScenarios.length === 0) {
       log('❌ All scenarios are already covered');
@@ -1070,14 +1105,27 @@ async function runTest() {
     comboMap.get(key)!.push(scenario);
   }
 
-  // Convert map to array of combos, assigning a unique port to each
+  // Convert map to array of combos, assigning a unique port to each.
+  // Within each combo, sort scenarios so permit2Direct tests run before
+  // coldstart tests. The coldstart flow drains the shared client wallet's
+  // ETH; if it ran first, a subsequent permit2Direct test would have no
+  // gas for its Permit2 approve transaction.
+  const schemeOptionsPriority = (scenario: TestScenario): number => {
+    if (scenario.endpoint.schemeOptions?.permit2Direct === true) return 0;
+    // No special schemeOptions (plain warmup, eip3009, etc.) — middle
+    if (!scenario.endpoint.schemeOptions?.coldstart) return 1;
+    // coldstart drains ETH — always last
+    return 2;
+  };
+
   let comboIndex = 0;
   for (const [, scenarios] of comboMap) {
-    const firstScenario = scenarios[0];
+    const sorted = [...scenarios].sort((a, b) => schemeOptionsPriority(a) - schemeOptionsPriority(b));
+    const firstScenario = sorted[0];
     serverFacilitatorCombos.push({
       serverName: firstScenario.server.name,
       facilitatorName: firstScenario.facilitator?.name,
-      scenarios,
+      scenarios: sorted,
       comboIndex,
       port: allocatePort(),
     });
@@ -1551,7 +1599,25 @@ async function runTest() {
             }
           }
 
-          const result = await runSingleTest(scenario, port, tn, cLog);
+          // Bounded retry for EVM Permit2 flows: transient 402s here are
+          // almost always stale on-chain state (allowance/nonce not yet
+          // propagated across load-balanced RPC nodes). Retry with a delay so
+          // state can settle; eip3009 and non-EVM flows run once (maxAttempts=1).
+          const isPermit2 = endpointAssetTransferMethod(scenario.endpoint) === 'permit2';
+          const maxAttempts = isEvm && isPermit2 ? EVM_PAYMENT_MAX_ATTEMPTS : 1;
+          let result = await runSingleTest(scenario, port, tn, cLog);
+          for (
+            let attempt = 1;
+            attempt < maxAttempts && !result.passed && isTransientPaymentFailure(result.error);
+            attempt++
+          ) {
+            cLog.log(
+              `  🔁 Test #${tn} transient failure (attempt ${attempt}/${maxAttempts}): ${result.error}. ` +
+              `Retrying in ${EVM_PAYMENT_RETRY_DELAY_MS}ms to let on-chain state settle...`
+            );
+            await new Promise(resolve => setTimeout(resolve, EVM_PAYMENT_RETRY_DELAY_MS));
+            result = await runSingleTest(scenario, port, tn, cLog);
+          }
 
           if (isEvm && resourceLock) {
             await new Promise(resolve => setTimeout(resolve, 1000));
