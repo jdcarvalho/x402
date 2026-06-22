@@ -200,23 +200,15 @@ func (f *ExactEvmScheme) settleEIP3009(
 				return nil, x402.NewSettleError(ErrSmartWalletDeploymentFailed, verifyResp.Payer, network, "", err.Error())
 			}
 
-			// Post-deploy: some ERC-7579 / Kernel wallets install validators lazily, so the
-			// factory-deployed wallet may reject the inner sig. Simulate before paying gas.
-			parsedForSim, err := ParseEIP3009Authorization(evmPayload.Authorization)
-			if err != nil {
-				return nil, x402.NewSettleError(ErrInvalidPayload, verifyResp.Payer, network, "", err.Error())
-			}
-			innerOnly := &evm.ERC6492SignatureData{InnerSignature: sigData.InnerSignature}
-			ok, simErr := SimulateEIP3009Transfer(ctx, f.signer, tokenAddress, parsedForSim, innerOnly)
-			if !ok {
-				// The wallet is deployed at this point. Only a genuine contract revert means
-				// its validator rejects the inner sig; a transport/RPC failure must not be
-				// reported as "signature unsupported".
-				if simErr != nil && !evm.IsContractRevert(simErr) {
-					return nil, x402.NewSettleError(ErrEip3009SimulationFailed, verifyResp.Payer, network, "", simErr.Error())
-				}
-				return nil, x402.NewSettleError(ErrDeployedInnerWalletSignatureUnsupported, verifyResp.Payer, network, "", MsgDeployedInnerWalletSignatureUnsupported)
-			}
+			// Do NOT re-simulate the transfer here. The single authoritative pre-check is the
+			// atomic deploy+transfer simulation that runs in verify (one eth_call via
+			// Multicall3, state carried across both sub-calls). A second standalone eth_call
+			// after the real deploy tx is unreliable — the read can race the deploy's state
+			// propagation across load-balanced RPC nodes — and was producing false
+			// ErrDeployedInnerWalletSignatureUnsupported rejections for valid wallets (e.g.
+			// Coinbase Smart Wallet). The on-chain transferWithAuthorization below is the
+			// definitive signature check; a genuinely unsupported inner signature reverts
+			// there and is classified by parseEIP3009TransferError.
 		}
 	}
 

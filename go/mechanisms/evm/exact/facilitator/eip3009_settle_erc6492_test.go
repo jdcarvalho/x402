@@ -16,25 +16,19 @@ import (
 )
 
 // settleMockSigner is a minimal FacilitatorEvmSigner for the ERC-6492 settle path.
-// ReadContract errors on transferWithAuthorization (the post-deploy transfer simulation)
-// to model a deployed wallet that rejects the inner signature; GetCode reports the payer
-// as undeployed and the asset as a deployed contract.
+// GetCode reports the payer as undeployed and the asset as a deployed contract; WriteContract
+// (the on-chain transferWithAuthorization) optionally returns writeErr to model a deployed
+// wallet whose validator rejects the inner signature.
 type settleMockSigner struct {
 	codeByAddress map[string][]byte
-	// transferErr overrides the error returned for the post-deploy transferWithAuthorization
-	// simulation. When nil it defaults to a contract revert (deployed wallet rejects the sig).
-	transferErr error
+	// writeErr, when set, is returned from WriteContract so settle classifies the reverted
+	// transfer via parseEIP3009TransferError instead of submitting it successfully.
+	writeErr error
 }
 
 func (m *settleMockSigner) GetAddresses() []string { return []string{"0xFac11"} }
 
 func (m *settleMockSigner) ReadContract(ctx context.Context, address string, abi []byte, functionName string, args ...interface{}) (interface{}, error) {
-	if functionName == "transferWithAuthorization" {
-		if m.transferErr != nil {
-			return nil, m.transferErr
-		}
-		return nil, fmt.Errorf("execution reverted: invalid signature")
-	}
 	return nil, nil
 }
 
@@ -43,6 +37,9 @@ func (m *settleMockSigner) VerifyTypedData(ctx context.Context, address string, 
 }
 
 func (m *settleMockSigner) WriteContract(ctx context.Context, address string, abi []byte, functionName string, dataSuffix []byte, args ...interface{}) (string, error) {
+	if m.writeErr != nil {
+		return "", m.writeErr
+	}
 	return "0x" + strings.Repeat("ab", 32), nil
 }
 
@@ -66,52 +63,21 @@ func (m *settleMockSigner) GetCode(ctx context.Context, address string) ([]byte,
 	return m.codeByAddress[strings.ToLower(address)], nil
 }
 
-// When the ERC-6492 factory deploys the wallet but the deployed wallet rejects the inner
-// signature (post-deploy transfer simulation reverts), settle must return the retry-guidance
-// error rather than submitting a doomed transfer.
-func TestSettleEIP3009_DeployedWalletRejectsInnerSig(t *testing.T) {
-	const (
-		// factory address baked into wrapERC6492Signature
-		factory = "0xca11bde05977b3631167028862be2a173976ca11"
-		payer   = "0x1234567890123456789012345678901234567890"
-		payTo   = "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb0"
-		token   = "0x036CbD53842c5426634e7929541eC2318f3dCF7e"
-	)
-
-	innerSig := common.FromHex("0x" + strings.Repeat("33", 66))
-	wrapped := wrapERC6492Signature(t, innerSig)
-
-	p := &evm.ExactEIP3009Payload{
-		Signature: "0x" + common.Bytes2Hex(wrapped),
-		Authorization: evm.ExactEIP3009Authorization{
-			From:        payer,
-			To:          payTo,
-			Value:       "1000000",
-			ValidAfter:  "0",
-			ValidBefore: "99999999999",
-			Nonce:       "0x" + strings.Repeat("00", 32),
-		},
-	}
-
-	requirements := types.PaymentRequirements{
-		Scheme:  "exact",
-		Network: "eip155:84532",
-		Amount:  "1000000",
-		Asset:   token,
-		PayTo:   payTo,
-		Extra:   map[string]interface{}{"name": "USDC", "version": "2"},
-	}
-	payload := types.PaymentPayload{
-		X402Version: 2,
-		Payload:     p.ToMap(),
-		Accepted:    requirements,
-	}
+// After deploying the wallet via the allowlisted factory, settle submits the on-chain
+// transferWithAuthorization (the authoritative signature check) — there is no separate
+// pre-transfer gate. A deployed wallet that rejects the inner signature surfaces as a
+// reverted transfer, classified via parseEIP3009TransferError.
+func TestSettleEIP3009_PostDeployTransferRevertClassified(t *testing.T) {
+	const factory = "0xca11bde05977b3631167028862be2a173976ca11"
+	payload, requirements := counterfactualErc6492Payload(t)
 
 	signer := &settleMockSigner{
 		codeByAddress: map[string][]byte{
-			strings.ToLower(token): {0x60, 0x60}, // asset is a deployed contract
-			strings.ToLower(payer): {},           // payer is undeployed (counterfactual)
+			strings.ToLower(requirements.Asset): {0x60, 0x60}, // asset is a deployed contract
+			strings.ToLower("0x1234567890123456789012345678901234567890"): {}, // payer undeployed
 		},
+		// The deployed wallet rejects the inner signature → the transfer reverts.
+		writeErr: fmt.Errorf("execution reverted: invalid signature"),
 	}
 	scheme := NewExactEvmScheme(signer, &ExactEvmSchemeConfig{
 		EIP6492AllowedFactories: []string{factory},
@@ -126,11 +92,8 @@ func TestSettleEIP3009_DeployedWalletRejectsInnerSig(t *testing.T) {
 	if !errors.As(err, &se) {
 		t.Fatalf("expected *x402.SettleError, got %T: %v", err, err)
 	}
-	if se.ErrorReason != ErrDeployedInnerWalletSignatureUnsupported {
-		t.Fatalf("expected reason %q, got %q", ErrDeployedInnerWalletSignatureUnsupported, se.ErrorReason)
-	}
-	if se.ErrorMessage != MsgDeployedInnerWalletSignatureUnsupported {
-		t.Fatalf("expected retry-guidance message, got %q", se.ErrorMessage)
+	if se.ErrorReason != ErrInvalidSignature {
+		t.Fatalf("expected reason %q, got %q", ErrInvalidSignature, se.ErrorReason)
 	}
 }
 
@@ -196,10 +159,10 @@ func TestVerifyEIP3009_CounterfactualFactoryNotAllowlisted(t *testing.T) {
 	}
 }
 
-// When the post-deploy simulation fails with a transport/RPC error (not a contract revert),
-// settle must surface the generic simulation-failed reason rather than misreporting it as
-// "signature unsupported".
-func TestSettleEIP3009_PostDeployRpcErrorIsNotSignatureUnsupported(t *testing.T) {
+// With no post-deploy simulation gate, a successful factory deploy is followed directly by
+// the transferWithAuthorization submission. The deploy tx and transfer tx both succeed here,
+// so settle reports success.
+func TestSettleEIP3009_SubmitsTransferAfterDeploy(t *testing.T) {
 	const (
 		factory = "0xca11bde05977b3631167028862be2a173976ca11"
 		payer   = "0x1234567890123456789012345678901234567890"
@@ -211,21 +174,16 @@ func TestSettleEIP3009_PostDeployRpcErrorIsNotSignatureUnsupported(t *testing.T)
 			strings.ToLower(token): {0x60, 0x60},
 			strings.ToLower(payer): {},
 		},
-		transferErr: fmt.Errorf("dial tcp: connection refused"),
 	}
 	scheme := NewExactEvmScheme(signer, &ExactEvmSchemeConfig{
 		EIP6492AllowedFactories: []string{factory},
 	})
 
-	_, err := scheme.Settle(context.Background(), payload, requirements, nil)
-	if err == nil {
-		t.Fatalf("expected settle error, got success")
+	resp, err := scheme.Settle(context.Background(), payload, requirements, nil)
+	if err != nil {
+		t.Fatalf("expected settle success, got error: %v", err)
 	}
-	se := &x402.SettleError{}
-	if !errors.As(err, &se) {
-		t.Fatalf("expected *x402.SettleError, got %T: %v", err, err)
-	}
-	if se.ErrorReason != ErrEip3009SimulationFailed {
-		t.Fatalf("expected reason %q (RPC failure, not signature), got %q", ErrEip3009SimulationFailed, se.ErrorReason)
+	if !resp.Success {
+		t.Fatalf("expected resp.Success = true, got %+v", resp)
 	}
 }

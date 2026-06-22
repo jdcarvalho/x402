@@ -15,7 +15,6 @@ from x402.mechanisms.evm import ERC6492_MAGIC_VALUE, get_network_config
 from x402.mechanisms.evm.constants import (
     ERR_ASSET_NOT_DEPLOYED_CONTRACT,
     ERR_AUTHORIZATION_VALUE_MISMATCH,
-    ERR_DEPLOYED_INNER_WALLET_SIGNATURE_UNSUPPORTED,
     ERR_FACTORY_NOT_ALLOWED,
     ERR_INSUFFICIENT_BALANCE,
     ERR_INVALID_SIGNATURE,
@@ -24,7 +23,6 @@ from x402.mechanisms.evm.constants import (
     ERR_TOKEN_VERSION_MISMATCH,
     ERR_TRANSACTION_SIMULATION_FAILED,
     ERR_UNDEPLOYED_SMART_WALLET,
-    MSG_DEPLOYED_INNER_WALLET_SIGNATURE_UNSUPPORTED,
 )
 from x402.mechanisms.evm.exact import ExactEvmFacilitatorScheme, ExactEvmSchemeConfig
 from x402.mechanisms.evm.exact.v1.facilitator import ExactEvmSchemeV1
@@ -193,6 +191,7 @@ class MockFacilitatorSigner:
         code: bytes = b"",
         code_by_address: dict[str, bytes] | None = None,
         transfer_simulation_should_revert: bool = False,
+        write_should_revert: bool = False,
         multicall_results: list[tuple[bool, bytes]] | None = None,
         deploy_tx_hash: str = "0x" + "12" * 32,
     ):
@@ -206,6 +205,7 @@ class MockFacilitatorSigner:
         if code_by_address:
             self._code_by_address.update({k.lower(): v for k, v in code_by_address.items()})
         self.transfer_simulation_should_revert = transfer_simulation_should_revert
+        self.write_should_revert = write_should_revert
         self.multicall_results = multicall_results or []
         self.deploy_tx_hash = deploy_tx_hash
         self.transfer_simulation_calls = 0
@@ -244,6 +244,8 @@ class MockFacilitatorSigner:
 
     def write_contract(self, address: str, abi: list[dict], function_name: str, *args) -> str:
         self.write_calls += 1
+        if self.write_should_revert:
+            raise RuntimeError("execution reverted: invalid signature")
         return "0x" + "34" * 32
 
     def send_transaction(self, to: str, data: bytes) -> str:
@@ -629,15 +631,16 @@ class TestSettleFactoryAllowlist:
         assert signer.send_calls == 1  # factory deployment
         assert signer.write_calls == 1  # transferWithAuthorization
 
-    def test_deployed_wallet_rejecting_inner_sig_returns_retry_error(self):
-        # The factory deploys the wallet, but the deployed wallet rejects the inner
-        # signature (e.g. an ERC-7579 / Kernel wallet whose validator is installed
-        # lazily). The post-deploy transfer simulation reverts, so settle must return
-        # the retry-guidance error instead of submitting a doomed transfer.
+    def test_deployed_wallet_rejecting_inner_sig_classifies_transfer_revert(self):
+        # After deploying the wallet via the allowlisted factory, settle submits the
+        # on-chain transferWithAuthorization (the authoritative signature check) — there
+        # is no separate pre-transfer gate. A deployed wallet that rejects the inner
+        # signature surfaces as a reverted transfer, classified via
+        # parse_eip3009_transfer_error.
         signer = MockFacilitatorSigner(
             typed_data_valid=True,
             code=b"",
-            transfer_simulation_should_revert=True,
+            write_should_revert=True,
         )
         facilitator = ExactEvmFacilitatorScheme(
             signer,
@@ -649,10 +652,9 @@ class TestSettleFactoryAllowlist:
         result = facilitator.settle(self._erc6492_payload(), make_requirements())
 
         assert result.success is False
-        assert result.error_reason == ERR_DEPLOYED_INNER_WALLET_SIGNATURE_UNSUPPORTED
-        assert result.error_message == MSG_DEPLOYED_INNER_WALLET_SIGNATURE_UNSUPPORTED
+        assert result.error_reason == ERR_INVALID_SIGNATURE
         assert signer.send_calls == 1  # wallet was deployed
-        assert signer.write_calls == 0  # no transfer submitted
+        assert signer.write_calls == 1  # transfer was submitted (and reverted)
 
     def test_case_insensitive_factory_match(self):
         signer = MockFacilitatorSigner(typed_data_valid=True, code=b"")

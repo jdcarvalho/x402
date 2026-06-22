@@ -182,7 +182,12 @@ def simulate_eip3009_transfer_result(
             )
         except Exception as e:
             return (False, e)
-        return (len(results) >= 2 and results[1].success, None)
+        if len(results) >= 2 and results[1].success:
+            return (True, None)
+        # Surface the transfer sub-call's revert (decoded by multicall) so the caller can
+        # report the concrete reason rather than a generic simulation-failed code.
+        transfer_error = results[1].error if len(results) >= 2 else None
+        return (False, transfer_error)
 
     if len(sig_data.inner_signature) == 65:
         v, r, s = _split_signature_parts(sig_data.inner_signature)

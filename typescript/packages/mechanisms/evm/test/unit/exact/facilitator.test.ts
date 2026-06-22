@@ -1067,16 +1067,16 @@ describe("ExactEvmScheme (Facilitator)", () => {
       expect(result.payer).toBe(erc6492Payer);
     });
 
-    // 66-byte inner sig avoids the ECDSA (65-byte) branch, so the post-deploy simulation takes
-    // the bytes-overload path and the readContract mock's rejection is what fails the sim.
+    // 66-byte inner sig avoids the ECDSA (65-byte) branch, so executeTransferWithAuthorization
+    // takes the bytes-overload path (writeContract receives the inner signature directly).
     const nonEcdsaInnerSig = ("0x" + "cc".repeat(66)) as `0x${string}`;
     const nonEcdsaErc6492Sig = makeERC6492Sig(factory, factoryCalldata, nonEcdsaInnerSig);
 
-    it("settle returns ErrDeployedInnerWalletSignatureUnsupported when the deployed wallet rejects the inner sig", async () => {
-      // Counterfactual wallet whose validator/plugin is not installed by the factory:
-      // deployment succeeds, but the post-deploy transfer simulation reverts because
-      // the deployed wallet's isValidSignature rejects the inner signature. settle must
-      // surface the retry-guidance error rather than submitting a doomed transfer.
+    it("settle submits the transfer after a successful deploy (no post-deploy simulation gate)", async () => {
+      // The on-chain transfer is the authoritative signature check: after deploying the
+      // wallet via the allowlisted factory, settle submits transferWithAuthorization with
+      // the inner signature rather than pre-simulating it (which raced the deploy's state
+      // and false-rejected valid wallets, e.g. Coinbase Smart Wallet).
       const facilitatorWithFactory = new ExactEvmScheme(mockFacilitatorSigner, {
         eip6492AllowedFactories: [factory],
       });
@@ -1085,35 +1085,27 @@ describe("ExactEvmScheme (Facilitator)", () => {
         .fn()
         .mockImplementation(mockGetCodeEOAPayer(erc6492Requirements.asset));
       mockFacilitatorSigner.sendTransaction = vi.fn().mockResolvedValue("0xdeploytx");
+      mockFacilitatorSigner.writeContract = vi.fn().mockResolvedValue("0xtransfertx");
       mockFacilitatorSigner.waitForTransactionReceipt = vi
         .fn()
         .mockResolvedValue({ status: "success" });
-      // Post-deploy transfer simulation reverts → classified as a signature rejection.
-      mockFacilitatorSigner.readContract = rcWithSig(
-        ({ functionName }: { functionName?: string }) => {
-          if (functionName === "transferWithAuthorization") {
-            return Promise.reject(new Error("execution reverted: invalid signature"));
-          }
-          return Promise.resolve(BigInt("10000000"));
-        },
-      );
 
       const result = await facilitatorWithFactory.settle(
         makeERC6492Payload(nonEcdsaErc6492Sig),
         erc6492Requirements,
       );
 
-      expect(result.success).toBe(false);
-      expect(result.errorReason).toBe(Errors.ErrDeployedInnerWalletSignatureUnsupported);
-      expect(result.errorMessage).toBe(Errors.DeployedInnerWalletSignatureUnsupportedMessage);
-      // No transfer was submitted (only the deploy tx) — the doomed transfer was caught.
-      expect(result.transaction).toBe("");
+      expect(result.success).toBe(true);
+      // Deploy tx was sent, then the transfer was submitted with the inner signature.
+      expect(mockFacilitatorSigner.sendTransaction).toHaveBeenCalled();
+      expect(mockFacilitatorSigner.writeContract).toHaveBeenCalled();
+      expect(result.transaction).toBe("0xtransfertx");
     });
 
-    it("settle returns the generic simulation-failed reason when post-deploy sim hits an RPC error (not a revert)", async () => {
-      // Deployment succeeds, but the post-deploy simulation fails with a transport/RPC error
-      // (no revert). That is NOT a signature problem, so settle must surface the generic
-      // simulation-failed reason rather than the misleading "signature unsupported" guidance.
+    it("settle classifies a post-deploy transfer revert (deployed wallet rejects inner sig)", async () => {
+      // A wallet whose deployed validator genuinely rejects the inner signature surfaces as
+      // a reverted transferWithAuthorization, classified via parseEip3009TransferError —
+      // no separate pre-transfer gate is needed.
       const facilitatorWithFactory = new ExactEvmScheme(mockFacilitatorSigner, {
         eip6492AllowedFactories: [factory],
       });
@@ -1124,14 +1116,10 @@ describe("ExactEvmScheme (Facilitator)", () => {
       mockFacilitatorSigner.waitForTransactionReceipt = vi
         .fn()
         .mockResolvedValue({ status: "success" });
-      mockFacilitatorSigner.readContract = rcWithSig(
-        ({ functionName }: { functionName?: string }) => {
-          if (functionName === "transferWithAuthorization") {
-            return Promise.reject(new Error("HTTP request failed: 503 Service Unavailable"));
-          }
-          return Promise.resolve(BigInt("10000000"));
-        },
-      );
+      // The real transfer reverts because the deployed wallet rejects the inner signature.
+      mockFacilitatorSigner.writeContract = vi
+        .fn()
+        .mockRejectedValue(new Error("execution reverted: invalid signature"));
 
       const result = await facilitatorWithFactory.settle(
         makeERC6492Payload(nonEcdsaErc6492Sig),
@@ -1139,7 +1127,7 @@ describe("ExactEvmScheme (Facilitator)", () => {
       );
 
       expect(result.success).toBe(false);
-      expect(result.errorReason).toBe(Errors.ErrEip3009SimulationFailed);
+      expect(result.errorReason).toBe(Errors.ErrInvalidSignature);
       expect(result.transaction).toBe("");
     });
 

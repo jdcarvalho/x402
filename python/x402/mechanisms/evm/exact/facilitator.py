@@ -1,8 +1,11 @@
 """EVM facilitator implementation for the Exact payment scheme (V2)."""
 
+import logging
 import time
 from dataclasses import dataclass, field
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 from ....schemas import (
     Network,
@@ -14,7 +17,6 @@ from ....schemas import (
 from ..constants import (
     ERR_ASSET_NOT_DEPLOYED_CONTRACT,
     ERR_AUTHORIZATION_VALUE_MISMATCH,
-    ERR_DEPLOYED_INNER_WALLET_SIGNATURE_UNSUPPORTED,
     ERR_FACTORY_NOT_ALLOWED,
     ERR_FAILED_TO_GET_NETWORK_CONFIG,
     ERR_FAILED_TO_VERIFY_SIGNATURE,
@@ -29,7 +31,6 @@ from ..constants import (
     ERR_UNSUPPORTED_SCHEME,
     ERR_VALID_AFTER_FUTURE,
     ERR_VALID_BEFORE_EXPIRED,
-    MSG_DEPLOYED_INNER_WALLET_SIGNATURE_UNSUPPORTED,
     SCHEME_EXACT,
     TX_STATUS_SUCCESS,
 )
@@ -40,7 +41,6 @@ from ..exact.eip3009_utils import (
     execute_transfer_with_authorization,
     parse_eip3009_authorization,
     parse_eip3009_transfer_error,
-    simulate_eip3009_transfer,
     simulate_eip3009_transfer_result,
 )
 from ..exact.permit2_utils import settle_permit2, verify_permit2
@@ -288,22 +288,43 @@ class ExactEvmScheme:
                 payer=payer,
             )
 
-        if not simulate_eip3009_transfer(
+        sim_ok, sim_error = simulate_eip3009_transfer_result(
             self._signer,
             token_address,
             parsed_authorization,
             classification.sig_data,
-        ):
-            return VerifyResponse(
-                is_valid=False,
-                invalid_reason=diagnose_eip3009_simulation_failure(
+        )
+        if not sim_ok:
+            # Prefer the concrete on-chain revert reason the simulation surfaced (e.g.
+            # insufficient balance / used nonce) over the opaque generic code. Fall back
+            # to a diagnostic probe only when the revert could not be classified.
+            reason = ERR_TRANSACTION_SIMULATION_FAILED
+            if is_contract_revert(sim_error):
+                mapped = parse_eip3009_transfer_error(sim_error)
+                if mapped != ERR_TRANSACTION_FAILED:
+                    reason = mapped
+            if reason == ERR_TRANSACTION_SIMULATION_FAILED:
+                reason = diagnose_eip3009_simulation_failure(
                     self._signer,
                     token_address,
                     evm_payload.authorization,
                     int(requirements.amount),
                     extra["name"],
                     extra["version"],
-                ),
+                )
+            # Log the concrete on-chain revert before returning. The HTTP response only
+            # carries the mapped reason code (and the resource server drops invalid_message
+            # entirely), so without this the actual revert is invisible to operators.
+            logger.warning(
+                "exact verify: transfer simulation failed payer=%s reason=%s revert=%s",
+                payer,
+                reason,
+                sim_error,
+            )
+            return VerifyResponse(
+                is_valid=False,
+                invalid_reason=reason,
+                invalid_message=str(sim_error) if sim_error is not None else None,
                 payer=payer,
             )
 
@@ -395,37 +416,16 @@ class ExactEvmScheme:
                         transaction="",
                     )
 
-                # Post-deploy: some ERC-7579 / Kernel wallets install validators lazily, so
-                # the factory-deployed wallet may reject the inner sig. Simulate first.
-                inner_only = ERC6492SignatureData(
-                    factory=bytes(20),
-                    factory_calldata=b"",
-                    inner_signature=sig_data.inner_signature,
-                )
-                sim_ok, sim_err = simulate_eip3009_transfer_result(
-                    self._signer, token_address, parsed_authorization, inner_only
-                )
-                if not sim_ok:
-                    # Wallet is deployed; only a genuine revert means its validator rejects
-                    # the inner sig. A transport/RPC failure must not be reported as
-                    # "signature unsupported".
-                    if sim_err is not None and not is_contract_revert(sim_err):
-                        return SettleResponse(
-                            success=False,
-                            error_reason=ERR_TRANSACTION_SIMULATION_FAILED,
-                            error_message=str(sim_err),
-                            network=network,
-                            payer=payer,
-                            transaction="",
-                        )
-                    return SettleResponse(
-                        success=False,
-                        error_reason=ERR_DEPLOYED_INNER_WALLET_SIGNATURE_UNSUPPORTED,
-                        error_message=MSG_DEPLOYED_INNER_WALLET_SIGNATURE_UNSUPPORTED,
-                        network=network,
-                        payer=payer,
-                        transaction="",
-                    )
+                # Do NOT re-simulate the transfer here. The single authoritative pre-check is
+                # the atomic deploy+transfer simulation that runs in verify (one eth_call via
+                # Multicall3, state carried across both sub-calls). A second standalone
+                # eth_call after the real deploy tx is unreliable — the read can race the
+                # deploy's state propagation across load-balanced RPC nodes — and was
+                # producing false ERR_DEPLOYED_INNER_WALLET_SIGNATURE_UNSUPPORTED rejections
+                # for valid wallets (e.g. Coinbase Smart Wallet). The on-chain
+                # transferWithAuthorization below is the definitive signature check; a
+                # genuinely unsupported inner signature reverts there and is classified by
+                # parse_eip3009_transfer_error.
 
         try:
             tx_hash = execute_transfer_with_authorization(
@@ -452,6 +452,12 @@ class ExactEvmScheme:
             )
 
         except Exception as e:
+            logger.warning(
+                "exact settle: transferWithAuthorization failed payer=%s reason=%s revert=%s",
+                payer,
+                parse_eip3009_transfer_error(e),
+                e,
+            )
             return SettleResponse(
                 success=False,
                 error_reason=parse_eip3009_transfer_error(e),

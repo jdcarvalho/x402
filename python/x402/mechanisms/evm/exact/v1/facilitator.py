@@ -9,7 +9,6 @@ from .....schemas import Network, SettleResponse, VerifyResponse
 from .....schemas.v1 import PaymentPayloadV1, PaymentRequirementsV1
 from ...constants import (
     ERR_AUTHORIZATION_VALUE_MISMATCH,
-    ERR_DEPLOYED_INNER_WALLET_SIGNATURE_UNSUPPORTED,
     ERR_FACTORY_NOT_ALLOWED,
     ERR_FAILED_TO_GET_NETWORK_CONFIG,
     ERR_FAILED_TO_VERIFY_SIGNATURE,
@@ -19,19 +18,17 @@ from ...constants import (
     ERR_RECIPIENT_MISMATCH,
     ERR_SMART_WALLET_DEPLOYMENT_FAILED,
     ERR_TRANSACTION_FAILED,
-    ERR_TRANSACTION_SIMULATION_FAILED,
     ERR_UNDEPLOYED_SMART_WALLET,
     ERR_UNSUPPORTED_SCHEME,
     ERR_VALID_AFTER_FUTURE,
     ERR_VALID_BEFORE_EXPIRED,
-    MSG_DEPLOYED_INNER_WALLET_SIGNATURE_UNSUPPORTED,
     SCHEME_EXACT,
     TX_STATUS_SUCCESS,
 )
 from ...erc6492 import has_deployment_info, parse_erc6492_signature
 from ...signer import FacilitatorEvmSigner
 from ...types import ERC6492SignatureData, ExactEIP3009Payload
-from ...utils import bytes_to_hex, hex_to_bytes, is_contract_revert, normalize_address
+from ...utils import bytes_to_hex, hex_to_bytes, normalize_address
 from ...v1.utils import get_evm_chain_id
 from ..eip3009_utils import (
     classify_eip3009_signature,
@@ -40,7 +37,6 @@ from ..eip3009_utils import (
     parse_eip3009_authorization,
     parse_eip3009_transfer_error,
     simulate_eip3009_transfer,
-    simulate_eip3009_transfer_result,
 )
 
 
@@ -369,37 +365,13 @@ class ExactEvmSchemeV1:
                         transaction="",
                     )
 
-                # Post-deploy: some ERC-7579 / Kernel wallets install validators lazily, so
-                # the factory-deployed wallet may reject the inner sig. Simulate first.
-                inner_only = ERC6492SignatureData(
-                    factory=bytes(20),
-                    factory_calldata=b"",
-                    inner_signature=sig_data.inner_signature,
-                )
-                sim_ok, sim_err = simulate_eip3009_transfer_result(
-                    self._signer, token_address, parsed_authorization, inner_only
-                )
-                if not sim_ok:
-                    # Wallet is deployed; only a genuine revert means its validator rejects
-                    # the inner sig. A transport/RPC failure must not be reported as
-                    # "signature unsupported".
-                    if sim_err is not None and not is_contract_revert(sim_err):
-                        return SettleResponse(
-                            success=False,
-                            error_reason=ERR_TRANSACTION_SIMULATION_FAILED,
-                            error_message=str(sim_err),
-                            network=network,
-                            payer=payer,
-                            transaction="",
-                        )
-                    return SettleResponse(
-                        success=False,
-                        error_reason=ERR_DEPLOYED_INNER_WALLET_SIGNATURE_UNSUPPORTED,
-                        error_message=MSG_DEPLOYED_INNER_WALLET_SIGNATURE_UNSUPPORTED,
-                        network=network,
-                        payer=payer,
-                        transaction="",
-                    )
+                # Do NOT re-simulate the transfer here. The authoritative pre-check is the
+                # atomic deploy+transfer simulation in verify; a second standalone eth_call
+                # after the real deploy tx races the deploy's state propagation across
+                # load-balanced RPC nodes and false-rejected valid wallets. The on-chain
+                # transferWithAuthorization below is the definitive signature check; a
+                # genuinely unsupported inner signature reverts there and is classified by
+                # parse_eip3009_transfer_error.
 
         try:
             tx_hash = execute_transfer_with_authorization(

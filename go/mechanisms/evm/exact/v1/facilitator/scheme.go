@@ -306,26 +306,12 @@ func (f *ExactEvmSchemeV1) Settle(
 				return nil, x402.NewSettleError(ErrSmartWalletDeploymentFailed, verifyResp.Payer, network, "", err.Error())
 			}
 
-			// Post-deploy: some ERC-7579 / Kernel wallets install validators lazily, so the
-			// factory-deployed wallet may reject the inner sig. Simulate before paying gas.
-			parsedForSim, err := exactfacilitator.ParseEIP3009Authorization(evmPayload.Authorization)
-			if err != nil {
-				return nil, x402.NewSettleError(ErrInvalidPayload, verifyResp.Payer, network, "", err.Error())
-			}
-			innerOnly := &evm.ERC6492SignatureData{InnerSignature: sigData.InnerSignature}
-			ok, simErr := exactfacilitator.SimulateEIP3009Transfer(ctx, f.signer, tokenAddress, parsedForSim, innerOnly)
-			if !ok {
-				// Wallet is deployed; only a genuine revert means the validator rejects the
-				// inner sig. A transport/RPC failure must not be reported as "signature unsupported".
-				if simErr != nil && !evm.IsContractRevert(simErr) {
-					return nil, x402.NewSettleError(exactfacilitator.ErrEip3009SimulationFailed, verifyResp.Payer, network, "", simErr.Error())
-				}
-				return nil, x402.NewSettleError(
-					exactfacilitator.ErrDeployedInnerWalletSignatureUnsupported,
-					verifyResp.Payer, network, "",
-					exactfacilitator.MsgDeployedInnerWalletSignatureUnsupported,
-				)
-			}
+			// Do NOT re-simulate the transfer here. The authoritative pre-check is the atomic
+			// deploy+transfer simulation in verify; a second standalone eth_call after the real
+			// deploy tx races the deploy's state propagation across load-balanced RPC nodes and
+			// false-rejected valid wallets. The on-chain transferWithAuthorization below is the
+			// definitive signature check; a genuinely unsupported inner signature reverts there
+			// and is classified by parseEIP3009TransferError.
 		}
 	}
 

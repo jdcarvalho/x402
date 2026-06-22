@@ -17,10 +17,8 @@ import {
   diagnoseEip3009SimulationFailure,
   executeTransferWithAuthorization,
   parseEip3009TransferError,
-  simulateEip3009Transfer,
   simulateEip3009TransferResult,
 } from "./eip3009-utils";
-import { isContractRevert } from "../../shared/revert";
 
 export interface VerifyEIP3009Options {
   /** Run onchain simulation. Defaults to true. */
@@ -222,20 +220,24 @@ export async function verifyEIP3009(
 
   // Transaction simulation
   if (options?.simulate !== false) {
-    const simulationSucceeded = await simulateEip3009Transfer(
+    const { ok, error: simError } = await simulateEip3009TransferResult(
       signer,
       erc20Address,
       eip3009Payload,
       eip6492Deployment,
     );
-    if (!simulationSucceeded) {
-      return diagnoseEip3009SimulationFailure(
+    if (!ok) {
+      const diagnosis = await diagnoseEip3009SimulationFailure(
         signer,
         erc20Address,
         eip3009Payload,
         requirements,
         requirements.amount,
       );
+      // Carry the raw revert text so the concrete reason survives the mapping to a code.
+      const rawMessage =
+        simError instanceof Error ? simError.message : simError ? String(simError) : undefined;
+      return rawMessage ? { ...diagnosis, invalidMessage: rawMessage } : diagnosis;
     }
   }
 
@@ -341,41 +343,15 @@ export async function settleEIP3009(
           };
         }
 
-        // Post-deploy: some ERC-7579 / Kernel wallets install validators lazily, so the
-        // factory-deployed wallet may reject the inner sig. Simulate before paying gas.
-        const innerSigForSimulation = erc6492InnerSig ?? eip3009Payload.signature!;
-        const postDeployPayload = { ...eip3009Payload, signature: innerSigForSimulation };
-        const postDeploySim = await simulateEip3009TransferResult(
-          signer,
-          getAddress(requirements.asset),
-          postDeployPayload,
-          // No eip6492Deployment: wallet is already deployed, simulate transfer only.
-        );
-        if (!postDeploySim.ok) {
-          // Wallet is deployed; only a genuine revert means its validator rejects the inner
-          // sig. A transport/RPC failure must not be reported as "signature unsupported".
-          if (postDeploySim.error !== undefined && !isContractRevert(postDeploySim.error)) {
-            return {
-              success: false,
-              errorReason: Errors.ErrEip3009SimulationFailed,
-              errorMessage:
-                postDeploySim.error instanceof Error
-                  ? postDeploySim.error.message
-                  : String(postDeploySim.error),
-              transaction: "",
-              network: payload.accepted.network,
-              payer,
-            };
-          }
-          return {
-            success: false,
-            errorReason: Errors.ErrDeployedInnerWalletSignatureUnsupported,
-            errorMessage: Errors.DeployedInnerWalletSignatureUnsupportedMessage,
-            transaction: "",
-            network: payload.accepted.network,
-            payer,
-          };
-        }
+        // Do NOT re-simulate the transfer here. The single authoritative pre-check is the
+        // atomic Multicall3 deploy+transfer simulation that runs in verify (one eth_call,
+        // state carried across both sub-calls). A second standalone eth_call after the real
+        // deploy tx is unreliable — the read can race the deploy's state propagation across
+        // load-balanced RPC nodes — and was producing false `eip6492_deployed_inner_wallet_
+        // signature_unsupported` rejections for valid wallets (e.g. Coinbase Smart Wallet).
+        // The on-chain transferWithAuthorization below is itself the definitive signature
+        // check (the token routes to the wallet's isValidSignature); a genuinely
+        // unsupported inner signature reverts there and is classified by the catch block.
       }
     }
 
@@ -419,9 +395,13 @@ export async function settleEIP3009(
       payer,
     };
   } catch (error) {
+    // Preserve the raw revert text alongside the mapped code. The mapper collapses many
+    // distinct on-chain reverts into a single reason (e.g. ErrInvalidSignature), so without
+    // the original message the true cause is invisible to callers/operators.
     return {
       success: false,
       errorReason: parseEip3009TransferError(error),
+      errorMessage: error instanceof Error ? error.message : String(error),
       transaction: "",
       network: payload.accepted.network,
       payer,
