@@ -25,6 +25,18 @@ import { executeRefundWithSignature } from "./refund";
 import { resolveDataSuffix } from "../../shared/extensions";
 import * as Errors from "../errors";
 
+export interface BatchSettlementEvmSchemeConfig {
+  /**
+   * Allowlist of factory contract addresses (hex strings, case-insensitive) the facilitator
+   * will call to deploy an undeployed (ERC-6492 counterfactual) smart wallet before an
+   * ERC-3009 deposit. An empty or omitted list denies all factory deployment (feature
+   * disabled by default).
+   *
+   * @default []
+   */
+  eip6492AllowedFactories?: string[];
+}
+
 /**
  * Facilitator-side implementation of the `batch-settlement` scheme for EVM networks.
  *
@@ -34,24 +46,24 @@ import * as Errors from "../errors";
 export class BatchSettlementEvmScheme implements SchemeNetworkFacilitator {
   readonly scheme = BATCH_SETTLEMENT_SCHEME;
   readonly caipFamily = "eip155:*";
+  private readonly config: Required<BatchSettlementEvmSchemeConfig>;
 
   /**
    * Creates a facilitator scheme for verifying and settling batch-settlement payments.
    *
-   * @param signer - Facilitator EVM signer(s) used for tx submission and onchain reads.
-   * @param authorizerSigner - Dedicated key that provides EIP-712 signatures for
-   *   `claimWithSignature` / `refundWithSignature`.  The facilitator will sign missing
-   *   authorizer signatures using this key when the server omits them.
-   * @param eip6492AllowedFactories - Allowlist of factory addresses the facilitator will call
-   *   to deploy an undeployed (ERC-6492 counterfactual) wallet before an ERC-3009 deposit. An
-   *   empty list (the default) denies all factory deployment, so counterfactual deposits are
-   *   rejected.
+   * @param signer - Facilitator EVM signer used for tx submission and onchain reads.
+   * @param authorizerSigner - Dedicated key for `claimWithSignature` / `refundWithSignature`.
+   * @param config - Optional configuration (e.g. ERC-6492 factory allowlist).
    */
   constructor(
     private readonly signer: FacilitatorEvmSigner,
     private readonly authorizerSigner: AuthorizerSigner,
-    private readonly eip6492AllowedFactories: string[] = [],
-  ) {}
+    config?: BatchSettlementEvmSchemeConfig,
+  ) {
+    this.config = {
+      eip6492AllowedFactories: config?.eip6492AllowedFactories ?? [],
+    };
+  }
 
   /**
    * Returns facilitator-specific extra fields to be merged into payment requirements.
@@ -111,7 +123,7 @@ export class BatchSettlementEvmScheme implements SchemeNetworkFacilitator {
         rawPayload,
         requirements,
         context,
-        this.eip6492AllowedFactories,
+        this.config.eip6492AllowedFactories,
       );
     }
 
@@ -160,7 +172,7 @@ export class BatchSettlementEvmScheme implements SchemeNetworkFacilitator {
         requirements,
         context,
         dataSuffix,
-        this.eip6492AllowedFactories,
+        this.config.eip6492AllowedFactories,
       );
     }
 

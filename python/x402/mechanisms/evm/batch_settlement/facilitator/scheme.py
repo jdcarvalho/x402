@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass, field
+
 from .....interfaces import FacilitatorContext
 from .....schemas import (
     PaymentPayload,
@@ -16,6 +18,20 @@ from ..errors import (
     ERR_INVALID_SCHEME,
     ERR_NETWORK_MISMATCH,
 )
+
+
+@dataclass
+class BatchSettlementEvmFacilitatorConfig:
+    """Optional configuration for :class:`BatchSettlementEvmFacilitator`.
+
+    Attributes:
+        eip6492_allowed_factories: Allowlist of factory contract addresses (hex strings,
+            case-insensitive) the facilitator will call to deploy an undeployed (ERC-6492
+            counterfactual) smart wallet before an ERC-3009 deposit.  An empty list
+            (the default) denies all factory deployment.
+    """
+
+    eip6492_allowed_factories: list[str] = field(default_factory=list)
 from ..types import (
     AuthorizerSigner,
     ChannelConfig,
@@ -42,14 +58,12 @@ class BatchSettlementEvmFacilitator:
         self,
         signer: FacilitatorEvmSigner,
         authorizer_signer: AuthorizerSigner,
-        eip6492_allowed_factories: list[str] | None = None,
+        config: BatchSettlementEvmFacilitatorConfig | None = None,
     ) -> None:
         self._signer = signer
         self._authorizer_signer = authorizer_signer
-        # Allowlist of factory addresses the facilitator will call to deploy an undeployed
-        # (ERC-6492 counterfactual) wallet before an ERC-3009 deposit. Empty/None denies all
-        # factory deployment, so counterfactual deposits are rejected.
-        self._eip6492_allowed_factories = list(eip6492_allowed_factories or [])
+        cfg = config or BatchSettlementEvmFacilitatorConfig()
+        self._eip6492_allowed_factories = list(cfg.eip6492_allowed_factories)
 
     def get_extra(self, network: str) -> dict | None:
         return {"receiverAuthorizer": self._authorizer_signer.address}

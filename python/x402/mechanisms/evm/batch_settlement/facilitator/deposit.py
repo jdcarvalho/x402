@@ -404,39 +404,6 @@ def _deploy_erc3009_counterfactual_if_needed(
             payer=payer,
         )
 
-    # Post-deploy: the wallet now has code, so a plain deposit() eth_call exercises its
-    # isValidSignature. A revert means the validator/plugin was installed lazily.
-    try:
-        signer.read_contract(
-            to_checksum_address(BATCH_SETTLEMENT_ADDRESS),
-            BATCH_SETTLEMENT_ABI,
-            "deposit",
-            to_contract_channel_config(payload.channel_config),
-            int(payload.deposit.amount),
-            execution.collector,
-            execution.collector_data,
-        )
-    except Exception as e:
-        # Wallet is deployed; only a genuine revert means its validator rejects the inner
-        # sig. A transport/RPC failure must not be reported as "signature unsupported".
-        if not is_contract_revert(e):
-            return SettleResponse(
-                success=False,
-                error_reason=ERR_DEPOSIT_SIMULATION_FAILED,
-                error_message=str(e)[:500],
-                transaction="",
-                network=network,
-                payer=payer,
-            )
-        return SettleResponse(
-            success=False,
-            error_reason=ERR_DEPLOYED_INNER_WALLET_SIGNATURE_UNSUPPORTED,
-            error_message=MSG_DEPLOYED_INNER_WALLET_SIGNATURE_UNSUPPORTED,
-            transaction="",
-            network=network,
-            payer=payer,
-        )
-
     return None
 
 

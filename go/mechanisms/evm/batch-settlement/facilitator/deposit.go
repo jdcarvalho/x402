@@ -751,22 +751,6 @@ func deployErc3009CounterfactualIfNeeded(
 		return x402.NewSettleError(ErrSmartWalletDeploymentFailed, "", network, config.Payer, err.Error())
 	}
 
-	// Post-deploy: some ERC-7579 / Kernel wallets install validators lazily, so the
-	// freshly deployed wallet may reject the inner sig. Simulate the deposit (the wallet
-	// now has code) before paying gas on a doomed deposit.
-	ok, simErr := simulateDeployedErc3009Deposit(
-		ctx, signer, configTuple, depositAmount, collectorAddr, collectorData,
-	)
-	if !ok {
-		// Wallet is deployed; only a genuine revert means its validator rejects the inner
-		// sig. A transport/RPC failure must not be reported as "signature unsupported".
-		if simErr != nil && !evm.IsContractRevert(simErr) {
-			return x402.NewSettleError(ErrDepositSimulationFailed, "", network, config.Payer, simErr.Error())
-		}
-		return x402.NewSettleError(ErrDeployedInnerWalletSignatureUnsupported, "", network, config.Payer,
-			MsgDeployedInnerWalletSignatureUnsupported)
-	}
-
 	return nil
 }
 

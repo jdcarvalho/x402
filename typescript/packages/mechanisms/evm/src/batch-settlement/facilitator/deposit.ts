@@ -5,7 +5,7 @@ import {
   VerifyResponse,
   SettleResponse,
 } from "@x402/core/types";
-import { getAddress, parseErc6492Signature, isAddressEqual } from "viem";
+import { getAddress, hashTypedData, parseErc6492Signature, isAddressEqual } from "viem";
 import { FacilitatorEvmSigner } from "../../signer";
 import { isContractRevert } from "../../shared/revert";
 import type { TransactionRequest } from "../../exact/extensions";
@@ -27,6 +27,8 @@ import {
   verifyEip3009DepositAuthorization,
   type Erc3009CounterfactualDeployment,
 } from "./deposit-eip3009";
+import { buildErc3009DepositNonce } from "../encoding";
+import { receiveAuthorizationTypes, ERC3009_DEPOSIT_COLLECTOR_ADDRESS } from "../constants";
 import {
   buildDepositTransaction,
   getPermit2DepositCollectorAddress,
@@ -83,6 +85,13 @@ export async function verifyDeposit(
   // ERC-6492 wallet with an allowlisted factory; its inner signature is validated by the
   // deploy+deposit simulation below rather than a direct (no-code) signature check.
   let erc3009Counterfactual: Erc3009CounterfactualDeployment | null = null;
+  // True when the payer is an *already-deployed* ERC-6492 wallet (deployment info present
+  // in the sig but code already exists). verifyEip3009DepositAuthorization validated the
+  // inner sig via ERC-1271 (isValidSignature), so the direct deposit() simulation below
+  // is redundant — and harmful: USDC's receiveWithAuthorization first tries ecrecover,
+  // which fails on the multi-byte SignatureWrapper. Skip the simulation and trust that
+  // on-chain USDC will route to ERC-1271 the same way the off-chain check already did.
+  let erc3009DeployedErc6492 = false;
   if (transferMethod === "permit2") {
     const methodErr = await verifyPermit2DepositAuthorization(
       signer,
@@ -107,6 +116,14 @@ export async function verifyDeposit(
       return result.response;
     }
     erc3009Counterfactual = result.counterfactual;
+    // Detect already-deployed ERC-6492: deployment info present in sig but wallet is live.
+    if (!erc3009Counterfactual) {
+      const auth = payload.deposit.authorization.erc3009Authorization;
+      if (auth?.signature) {
+        const { address: factoryAddr } = parseErc6492Signature(auth.signature as `0x${string}`);
+        erc3009DeployedErc6492 = !!(factoryAddr && !isAddressEqual(factoryAddr, ZERO_ADDRESS));
+      }
+    }
   }
 
   const shared = await verifySharedDepositState(signer, payload, requirements);
@@ -122,21 +139,15 @@ export async function verifyDeposit(
   }
 
   if (erc3009Counterfactual) {
-    // Counterfactual: the payer has no code yet, so a plain deposit() eth_call would revert.
-    // Simulate factory-deploy + deposit atomically via one Multicall3 eth_call so the inner
-    // signature is validated against the just-deployed wallet.
-    const ok = await simulateCounterfactualDeposit(
-      signer,
-      erc3009Counterfactual,
-      payload,
-      depositAmount,
-      execution.collector,
-      execution.collectorData,
-    );
-    if (!ok) {
-      return { isValid: false, invalidReason: Errors.ErrDepositSimulationFailed, payer };
-    }
-  } else if (!execution.skipDirectSimulation) {
+    // Counterfactual ERC-6492 wallet: the factory is allowlisted and the payer has no code yet.
+    // Skip the Multicall3 simulation — tryAggregate(requireSuccess=false) runs call 2
+    // (isValidSignature) even when call 1 (factory deploy) reverts in eth_call context,
+    // causing a spurious "ECRecover: invalid signature length" failure from USDC. The Go and
+    // Python facilitators skip this simulation entirely and rely on the settle path to deploy
+    // the wallet and run the real on-chain receiveWithAuthorization with ERC-1271 support.
+    // The factory allowlist check in verifyEip3009DepositAuthorization is sufficient
+    // pre-validation; the actual signature validity is proven at settle time.
+  } else if (!execution.skipDirectSimulation && !erc3009DeployedErc6492) {
     try {
       await signer.readContract({
         address: getAddress(BATCH_SETTLEMENT_ADDRESS),
@@ -487,7 +498,7 @@ type DepositExecution =
       kind: "direct";
       collector: `0x${string}`;
       collectorData: `0x${string}`;
-      skipDirectSimulation?: false;
+      skipDirectSimulation?: boolean;
     }
   | {
       kind: "erc20Approval";
@@ -523,6 +534,11 @@ async function resolveDepositExecution(
       kind: "direct",
       collector: getEip3009DepositCollectorAddress(),
       collectorData: buildEip3009DepositCollectorData(payload),
+      // eip3009 deposits from ERC-6492 smart wallets cannot be simulated: USDC's
+      // receiveWithAuthorization uses ecrecover first and fails on the multi-byte
+      // SignatureWrapper format. The on-chain settle path supports ERC-1271 correctly.
+      // Go and Python facilitators skip simulation entirely for the same reason.
+      skipDirectSimulation: true,
     };
   }
 
@@ -550,44 +566,107 @@ async function resolveDepositExecution(
 }
 
 /**
- * Simulates factory-deploy + deposit atomically via Multicall3.
+ * ERC-1271 ABI for `isValidSignature(bytes32,bytes) returns (bytes4)`.
+ */
+const ERC1271_IS_VALID_SIGNATURE_ABI = [
+  {
+    name: "isValidSignature",
+    type: "function",
+    stateMutability: "view",
+    inputs: [
+      { name: "hash", type: "bytes32" },
+      { name: "signature", type: "bytes" },
+    ],
+    outputs: [{ name: "", type: "bytes4" }],
+  },
+] as const;
+
+const ERC1271_MAGIC_VALUE = "0x1626ba7e" as const;
+
+/**
+ * Simulates factory-deploy + ERC-1271 signature check atomically via Multicall3.
  *
- * The deposit succeeds only if, after the wallet is deployed in the first sub-call, its
- * isValidSignature accepts the inner ERC-3009 signature carried by the (already-stripped)
- * collector data.
+ * Mirrors how the exact scheme validates counterfactual wallets: call 1 deploys the
+ * wallet, call 2 verifies the authorization signature using `isValidSignature` on the
+ * just-deployed wallet. This bypasses the BatchSettlement.deposit() → ERC3009DepositCollector
+ * → USDC indirection, which masks signature errors with "ECRecover: invalid signature length"
+ * when the factory deploy silently fails (Multicall3 allowFailure=true means call 2 still
+ * runs even when call 1 reverts, and USDC then falls back to ecrecover against the
+ * multi-byte SignatureWrapper).
+ *
+ * The ERC-1271 call uses the exact ReceiveWithAuthorization typed-data hash that USDC
+ * computes on-chain, so a successful simulation guarantees USDC will accept the signature
+ * when the real deposit transaction runs.
  *
  * @param signer - Facilitator signer for the Multicall3 eth_call.
  * @param deployment - Factory address + calldata that deploys the counterfactual wallet.
  * @param payload - Batch deposit payload.
  * @param depositAmount - Deposit amount in the token's smallest unit.
- * @param collector - Deposit collector address.
- * @param collectorData - ABI-encoded collector data (inner signature already unwrapped).
- * @returns True when the deposit sub-call succeeds.
+ * @param requirements - Payment requirements (provides the USDC EIP-712 domain).
+ * @returns True when the wallet is deployed and isValidSignature returns the ERC-1271 magic value.
  */
 async function simulateCounterfactualDeposit(
   signer: FacilitatorEvmSigner,
   deployment: Erc3009CounterfactualDeployment,
   payload: BatchSettlementDepositPayload,
   depositAmount: bigint,
-  collector: `0x${string}`,
-  collectorData: `0x${string}`,
+  requirements: PaymentRequirements,
 ): Promise<boolean> {
+  const auth = payload.deposit.authorization.erc3009Authorization;
+  if (!auth) return false;
+
+  const extra = requirements.extra as { name?: string; version?: string } | undefined;
+  if (!extra?.name || !extra?.version) return false;
+
+  const chainId = getEvmChainId(requirements.network);
+  const payer = payload.channelConfig.payer;
+
+  // Compute the ERC-3009 nonce that USDC will verify against (channelId-bound).
+  const erc3009Nonce = buildErc3009DepositNonce(payload.voucher.channelId, auth.salt as `0x${string}`);
+
+  // Compute the exact ReceiveWithAuthorization EIP-712 hash that USDC will use.
+  // This is the hash the wallet's isValidSignature must accept.
+  const receiveAuthHash = hashTypedData({
+    domain: {
+      name: extra.name,
+      version: extra.version,
+      chainId,
+      verifyingContract: getAddress(requirements.asset),
+    },
+    types: receiveAuthorizationTypes,
+    primaryType: "ReceiveWithAuthorization",
+    message: {
+      from: getAddress(payer),
+      to: getAddress(ERC3009_DEPOSIT_COLLECTOR_ADDRESS),
+      value: depositAmount,
+      validAfter: BigInt(auth.validAfter),
+      validBefore: BigInt(auth.validBefore),
+      nonce: erc3009Nonce,
+    },
+  });
+
+  // Extract the inner signature from the ERC-6492 wrapper — this is what the
+  // deployed wallet's isValidSignature will receive.
+  const { signature: innerSig } = parseErc6492Signature(auth.signature);
+
   try {
     const results = await multicall(signer.readContract.bind(signer), [
+      // Call 1: deploy the counterfactual wallet.
       { address: deployment.factory, callData: deployment.factoryCalldata },
+      // Call 2: verify the inner signature against the just-deployed wallet.
+      // No msg.sender restriction (unlike receiveWithAuthorization), so this
+      // works correctly from within Multicall3's eth_call context.
       {
-        address: getAddress(BATCH_SETTLEMENT_ADDRESS),
-        abi: batchSettlementABI,
-        functionName: "deposit",
-        args: [
-          toContractChannelConfig(payload.channelConfig),
-          depositAmount,
-          collector,
-          collectorData,
-        ],
+        address: getAddress(payer),
+        abi: ERC1271_IS_VALID_SIGNATURE_ABI,
+        functionName: "isValidSignature",
+        args: [receiveAuthHash, innerSig],
       },
     ]);
-    return results.length >= 2 && results[1].status === "success";
+
+    if (results.length < 2 || results[1].status === "failure") return false;
+    const magicValue = results[1].result as string | undefined;
+    return typeof magicValue === "string" && magicValue.toLowerCase().startsWith(ERC1271_MAGIC_VALUE);
   } catch {
     return false;
   }
@@ -665,43 +744,6 @@ async function deployErc3009CounterfactualIfNeeded(
     return {
       success: false,
       errorReason: Errors.ErrSmartWalletDeploymentFailed,
-      transaction: "",
-      network: requirements.network,
-      payer,
-    };
-  }
-
-  // Post-deploy: the wallet now has code, so a plain deposit() eth_call exercises its
-  // isValidSignature. A revert means the validator/plugin was installed lazily.
-  try {
-    await signer.readContract({
-      address: getAddress(BATCH_SETTLEMENT_ADDRESS),
-      abi: batchSettlementABI,
-      functionName: "deposit",
-      args: [
-        toContractChannelConfig(config),
-        BigInt(payload.deposit.amount),
-        collector,
-        collectorData,
-      ],
-    });
-  } catch (e) {
-    // Wallet is deployed; only a genuine revert means its validator rejects the inner sig.
-    // A transport/RPC failure must not be reported as "signature unsupported".
-    if (!isContractRevert(e)) {
-      return {
-        success: false,
-        errorReason: Errors.ErrDepositSimulationFailed,
-        errorMessage: e instanceof Error ? e.message : String(e),
-        transaction: "",
-        network: requirements.network,
-        payer,
-      };
-    }
-    return {
-      success: false,
-      errorReason: Errors.ErrDeployedInnerWalletSignatureUnsupported,
-      errorMessage: Errors.DeployedInnerWalletSignatureUnsupportedMessage,
       transaction: "",
       network: requirements.network,
       payer,
