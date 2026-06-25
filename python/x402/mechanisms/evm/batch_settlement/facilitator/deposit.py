@@ -31,6 +31,7 @@ from ..constants import BATCH_SETTLEMENT_ADDRESS
 from ..errors import (
     ERR_CUMULATIVE_AMOUNT_BELOW_CLAIMED,
     ERR_CUMULATIVE_EXCEEDS_BALANCE,
+    ERR_DEPLOYED_INNER_WALLET_SIGNATURE_UNSUPPORTED,
     ERR_DEPOSIT_SIMULATION_FAILED,
     ERR_DEPOSIT_TRANSACTION_FAILED,
     ERR_FACTORY_NOT_ALLOWED,
@@ -39,6 +40,7 @@ from ..errors import (
     ERR_INVALID_VOUCHER_SIGNATURE,
     ERR_RPC_READ_FAILED,
     ERR_SMART_WALLET_DEPLOYMENT_FAILED,
+    MSG_DEPLOYED_INNER_WALLET_SIGNATURE_UNSUPPORTED,
 )
 from ..types import DepositPayload
 from ..utils import coerce_bytes32
@@ -397,6 +399,30 @@ def _deploy_erc3009_counterfactual_if_needed(
             success=False,
             error_reason=ERR_SMART_WALLET_DEPLOYMENT_FAILED,
             error_message=str(e)[:500],
+            transaction="",
+            network=network,
+            payer=payer,
+        )
+
+    # After deployment, simulate the deposit with the inner signature to detect wallets
+    # whose validator plugin is not yet active. If the simulation reverts, the wallet was
+    # deployed but cannot yet accept the ERC-3009 inner signature — the payer must retry
+    # with a standard ERC-1271 signature now that the wallet exists onchain.
+    try:
+        signer.read_contract(
+            to_checksum_address(BATCH_SETTLEMENT_ADDRESS),
+            BATCH_SETTLEMENT_ABI,
+            "deposit",
+            to_contract_channel_config(payload.channel_config),
+            int(payload.deposit.amount),
+            execution.collector,
+            execution.collector_data,
+        )
+    except Exception:
+        return SettleResponse(
+            success=False,
+            error_reason=ERR_DEPLOYED_INNER_WALLET_SIGNATURE_UNSUPPORTED,
+            error_message=MSG_DEPLOYED_INNER_WALLET_SIGNATURE_UNSUPPORTED,
             transaction="",
             network=network,
             payer=payer,
