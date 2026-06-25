@@ -404,30 +404,16 @@ def _deploy_erc3009_counterfactual_if_needed(
             payer=payer,
         )
 
-    # After deployment, simulate the deposit with the inner signature to detect wallets
-    # whose validator plugin is not yet active. If the simulation reverts, the wallet was
-    # deployed but cannot yet accept the ERC-3009 inner signature — the payer must retry
-    # with a standard ERC-1271 signature now that the wallet exists onchain.
-    try:
-        signer.read_contract(
-            to_checksum_address(BATCH_SETTLEMENT_ADDRESS),
-            BATCH_SETTLEMENT_ABI,
-            "deposit",
-            to_contract_channel_config(payload.channel_config),
-            int(payload.deposit.amount),
-            execution.collector,
-            execution.collector_data,
-        )
-    except Exception:
-        return SettleResponse(
-            success=False,
-            error_reason=ERR_DEPLOYED_INNER_WALLET_SIGNATURE_UNSUPPORTED,
-            error_message=MSG_DEPLOYED_INNER_WALLET_SIGNATURE_UNSUPPORTED,
-            transaction="",
-            network=network,
-            payer=payer,
-        )
-
+    # Do NOT re-simulate the deposit here. The single authoritative pre-check is the
+    # atomic Multicall3 deploy+isValidSignature simulation that runs in verify_deposit
+    # (one eth_call, state shared across both sub-calls). A second standalone eth_call
+    # after the real deploy tx is unreliable — the read can race the deploy's state
+    # propagation across load-balanced RPC nodes — and was producing false
+    # ERR_DEPLOYED_INNER_WALLET_SIGNATURE_UNSUPPORTED rejections for valid wallets
+    # (e.g. Coinbase Smart Wallet v1.1). The on-chain deposit() transaction that
+    # follows is itself the definitive signature check; a genuinely unsupported inner
+    # signature will revert there and the outer try/except in settle_deposit will
+    # surface it as ERR_DEPOSIT_TRANSACTION_FAILED.
     return None
 
 

@@ -751,14 +751,15 @@ func deployErc3009CounterfactualIfNeeded(
 		return x402.NewSettleError(ErrSmartWalletDeploymentFailed, "", network, config.Payer, err.Error())
 	}
 
-	// Simulate the deposit with the inner signature to catch wallets whose validator
-	// is installed lazily — submitting a doomed deposit would waste gas and misreport the failure.
-	ok, err := simulateDeployedErc3009Deposit(ctx, signer, configTuple, depositAmount, collectorAddr, collectorData)
-	if err != nil || !ok {
-		return x402.NewSettleError(ErrDeployedInnerWalletSignatureUnsupported, "", network, config.Payer,
-			MsgDeployedInnerWalletSignatureUnsupported)
-	}
-
+	// Do NOT re-simulate the deposit here. The single authoritative pre-check is the
+	// atomic Multicall3 deploy+isValidSignature simulation that runs in VerifyDeposit
+	// (one eth_call, state shared across both sub-calls). A second standalone eth_call
+	// after the real deploy tx is unreliable — the read can race the deploy's state
+	// propagation across load-balanced RPC nodes — and was producing false
+	// ErrDeployedInnerWalletSignatureUnsupported rejections for valid wallets
+	// (e.g. Coinbase Smart Wallet v1.1). The real deposit() transaction that follows
+	// is itself the definitive signature check; a genuinely unsupported inner
+	// signature will revert there and be surfaced as ErrDepositTransactionFailed.
 	return nil
 }
 
