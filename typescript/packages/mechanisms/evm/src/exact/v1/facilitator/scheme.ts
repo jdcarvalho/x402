@@ -140,11 +140,9 @@ export class ExactEvmSchemeV1 implements SchemeNetworkFacilitator {
 
     try {
       // Parse ERC-6492 signature if applicable (for optional deployment)
-      const {
-        address: factoryAddress,
-        data: factoryCalldata,
-        signature: innerSignature,
-      } = parseErc6492Signature(exactEvmPayload.signature!);
+      const { address: factoryAddress, data: factoryCalldata } = parseErc6492Signature(
+        exactEvmPayload.signature!,
+      );
 
       // Deploy ERC-4337 smart wallet via EIP-6492 if factory is in the allowlist
       if (

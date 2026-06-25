@@ -25,13 +25,12 @@ from ...erc6492 import has_deployment_info, parse_erc6492_signature
 from ...multicall import MulticallCall, multicall
 from ...signer import FacilitatorEvmSigner
 from ...types import ERC6492SignatureData
-from ...utils import bytes_to_hex, get_evm_chain_id, is_contract_revert
+from ...utils import bytes_to_hex, get_evm_chain_id
 from ..abi import BATCH_SETTLEMENT_ABI, ERC20_BALANCE_OF_ABI
 from ..constants import BATCH_SETTLEMENT_ADDRESS
 from ..errors import (
     ERR_CUMULATIVE_AMOUNT_BELOW_CLAIMED,
     ERR_CUMULATIVE_EXCEEDS_BALANCE,
-    ERR_DEPLOYED_INNER_WALLET_SIGNATURE_UNSUPPORTED,
     ERR_DEPOSIT_SIMULATION_FAILED,
     ERR_DEPOSIT_TRANSACTION_FAILED,
     ERR_FACTORY_NOT_ALLOWED,
@@ -40,7 +39,6 @@ from ..errors import (
     ERR_INVALID_VOUCHER_SIGNATURE,
     ERR_RPC_READ_FAILED,
     ERR_SMART_WALLET_DEPLOYMENT_FAILED,
-    MSG_DEPLOYED_INNER_WALLET_SIGNATURE_UNSUPPORTED,
 )
 from ..types import DepositPayload
 from ..utils import coerce_bytes32

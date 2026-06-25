@@ -73,8 +73,8 @@ func TestSettleEIP3009_PostDeployTransferRevertClassified(t *testing.T) {
 
 	signer := &settleMockSigner{
 		codeByAddress: map[string][]byte{
-			strings.ToLower(requirements.Asset): {0x60, 0x60}, // asset is a deployed contract
-			strings.ToLower("0x1234567890123456789012345678901234567890"): {}, // payer undeployed
+			strings.ToLower(requirements.Asset):                           {0x60, 0x60}, // asset is a deployed contract
+			strings.ToLower("0x1234567890123456789012345678901234567890"): {},           // payer undeployed
 		},
 		// The deployed wallet rejects the inner signature → the transfer reverts.
 		writeErr: fmt.Errorf("execution reverted: invalid signature"),

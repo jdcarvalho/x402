@@ -751,6 +751,14 @@ func deployErc3009CounterfactualIfNeeded(
 		return x402.NewSettleError(ErrSmartWalletDeploymentFailed, "", network, config.Payer, err.Error())
 	}
 
+	// Simulate the deposit with the inner signature to catch wallets whose validator
+	// is installed lazily — submitting a doomed deposit would waste gas and misreport the failure.
+	ok, err := simulateDeployedErc3009Deposit(ctx, signer, configTuple, depositAmount, collectorAddr, collectorData)
+	if err != nil || !ok {
+		return x402.NewSettleError(ErrDeployedInnerWalletSignatureUnsupported, "", network, config.Payer,
+			MsgDeployedInnerWalletSignatureUnsupported)
+	}
+
 	return nil
 }
 

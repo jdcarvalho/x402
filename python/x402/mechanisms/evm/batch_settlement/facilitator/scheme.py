@@ -18,20 +18,6 @@ from ..errors import (
     ERR_INVALID_SCHEME,
     ERR_NETWORK_MISMATCH,
 )
-
-
-@dataclass
-class BatchSettlementEvmFacilitatorConfig:
-    """Optional configuration for :class:`BatchSettlementEvmFacilitator`.
-
-    Attributes:
-        eip6492_allowed_factories: Allowlist of factory contract addresses (hex strings,
-            case-insensitive) the facilitator will call to deploy an undeployed (ERC-6492
-            counterfactual) smart wallet before an ERC-3009 deposit.  An empty list
-            (the default) denies all factory deployment.
-    """
-
-    eip6492_allowed_factories: list[str] = field(default_factory=list)
 from ..types import (
     AuthorizerSigner,
     ChannelConfig,
@@ -46,6 +32,20 @@ from ..types import (
     is_settle_payload,
     is_voucher_payload,
 )
+
+
+@dataclass
+class BatchSettlementEvmFacilitatorConfig:
+    """Optional configuration for :class:`BatchSettlementEvmFacilitator`.
+
+    Attributes:
+        eip6492_allowed_factories: Allowlist of factory contract addresses (hex strings,
+            case-insensitive) the facilitator will call to deploy an undeployed (ERC-6492
+            counterfactual) smart wallet before an ERC-3009 deposit.  An empty list
+            (the default) denies all factory deployment.
+    """
+
+    eip6492_allowed_factories: list[str] = field(default_factory=list)
 
 
 class BatchSettlementEvmFacilitator:

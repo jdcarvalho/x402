@@ -5,8 +5,6 @@ import time
 from dataclasses import dataclass, field
 from typing import Any
 
-logger = logging.getLogger(__name__)
-
 from ....schemas import (
     Network,
     PaymentPayload,
@@ -53,6 +51,8 @@ from ..utils import (
     is_contract_revert,
     normalize_address,
 )
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
