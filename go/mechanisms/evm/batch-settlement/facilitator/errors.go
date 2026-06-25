@@ -105,18 +105,6 @@ const (
 	// ErrSmartWalletDeploymentFailed is returned when the ERC-6492 factory deployment
 	// transaction itself fails or reverts.
 	ErrSmartWalletDeploymentFailed = "invalid_batch_settlement_evm_smart_wallet_deployment_failed"
-	// ErrDeployedInnerWalletSignatureUnsupported is returned when the factory deployed the
-	// wallet but the deployed wallet rejected the inner ERC-3009 signature — the
-	// validator/plugin needed to verify it was not active at deployment (common for
-	// ERC-7579 / Kernel wallets whose session-key validator is installed lazily). The wallet
-	// now exists on-chain, so a retry with a standard ERC-1271 signature should settle.
-	ErrDeployedInnerWalletSignatureUnsupported = "invalid_batch_settlement_evm_eip6492_deployed_inner_wallet_signature_unsupported"
-	// MsgDeployedInnerWalletSignatureUnsupported is the human-readable explanation for
-	// ErrDeployedInnerWalletSignatureUnsupported, surfaced via the settle error message.
-	MsgDeployedInnerWalletSignatureUnsupported = "Smart wallet was deployed from its ERC-6492 counterfactual address, " +
-		"but the deployed wallet rejected the inner signature — the validator/plugin needed to verify it was not " +
-		"active at deployment. The wallet is now deployed; retry the payment and the wallet should produce a " +
-		"standard ERC-1271 signature that settles."
 
 	// Authorizer errors
 	ErrAuthorizerAddressMismatch = "invalid_batch_settlement_evm_authorizer_address_mismatch"

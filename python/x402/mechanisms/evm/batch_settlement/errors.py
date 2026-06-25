@@ -34,15 +34,6 @@ ERR_DEPOSIT_TRANSACTION_FAILED = "invalid_batch_settlement_evm_deposit_transacti
 # scheme prefix to match the rest of this module's contract.
 ERR_FACTORY_NOT_ALLOWED = "invalid_batch_settlement_evm_eip6492_factory_not_allowed"
 ERR_SMART_WALLET_DEPLOYMENT_FAILED = "invalid_batch_settlement_evm_smart_wallet_deployment_failed"
-ERR_DEPLOYED_INNER_WALLET_SIGNATURE_UNSUPPORTED = (
-    "invalid_batch_settlement_evm_eip6492_deployed_inner_wallet_signature_unsupported"
-)
-MSG_DEPLOYED_INNER_WALLET_SIGNATURE_UNSUPPORTED = (
-    "Smart wallet was deployed from its ERC-6492 counterfactual address, but the deployed "
-    "wallet rejected the inner signature — the validator/plugin needed to verify it was not "
-    "active at deployment. The wallet is now deployed; retry the payment and the wallet should "
-    "produce a standard ERC-1271 signature that settles."
-)
 
 ERR_VOUCHER_PAYLOAD = "invalid_batch_settlement_evm_voucher_payload"
 

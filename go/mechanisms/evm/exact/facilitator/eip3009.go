@@ -205,7 +205,7 @@ func (f *ExactEvmScheme) settleEIP3009(
 			// Multicall3, state carried across both sub-calls). A second standalone eth_call
 			// after the real deploy tx is unreliable — the read can race the deploy's state
 			// propagation across load-balanced RPC nodes — and was producing false
-			// ErrDeployedInnerWalletSignatureUnsupported rejections for valid wallets (e.g.
+			// inner-signature-unsupported rejections for valid wallets (e.g.
 			// Coinbase Smart Wallet). The on-chain transferWithAuthorization below is the
 			// definitive signature check; a genuinely unsupported inner signature reverts
 			// there and is classified by parseEIP3009TransferError.

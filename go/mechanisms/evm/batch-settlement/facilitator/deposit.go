@@ -753,7 +753,7 @@ func deployErc3009CounterfactualIfNeeded(
 	// (one eth_call, state shared across both sub-calls). A second standalone eth_call
 	// after the real deploy tx is unreliable — the read can race the deploy's state
 	// propagation across load-balanced RPC nodes — and was producing false
-	// ErrDeployedInnerWalletSignatureUnsupported rejections for valid wallets
+	// inner-signature-unsupported rejections for valid wallets
 	// (e.g. Coinbase Smart Wallet v1.1). The real deposit() transaction that follows
 	// is itself the definitive signature check; a genuinely unsupported inner
 	// signature will revert there and be surfaced as ErrDepositTransactionFailed.
