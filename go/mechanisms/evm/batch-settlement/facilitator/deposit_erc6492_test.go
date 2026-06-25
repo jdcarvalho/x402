@@ -133,21 +133,9 @@ func TestSettleDeposit_CounterfactualFactoryNotAllowed(t *testing.T) {
 		getCode: func(string) ([]byte, error) { return nil, nil }, // undeployed
 	}
 	payload := counterfactualDepositPayload(t, common.HexToAddress(testErc6492Factory))
-	configTuple := ToContractChannelConfig(payload.ChannelConfig)
-	collectorData, err := batchsettlement.BuildErc3009CollectorData(
-		payload.Deposit.Authorization.Erc3009Authorization.ValidAfter,
-		payload.Deposit.Authorization.Erc3009Authorization.ValidBefore,
-		payload.Deposit.Authorization.Erc3009Authorization.Salt,
-		payload.Deposit.Authorization.Erc3009Authorization.Signature,
-	)
-	if err != nil {
-		t.Fatalf("collector data: %v", err)
-	}
-	collectorAddr := common.HexToAddress(batchsettlement.ERC3009DepositCollectorAddress)
 
-	err = deployErc3009CounterfactualIfNeeded(
+	err := deployErc3009CounterfactualIfNeeded(
 		context.Background(), signer, payload, reqsWithExtra(), nil, // empty allowlist
-		configTuple, big.NewInt(1000), collectorAddr, collectorData,
 	)
 	var se *x402.SettleError
 	if !errors.As(err, &se) || se.ErrorReason != ErrFactoryNotAllowed {
@@ -158,58 +146,41 @@ func TestSettleDeposit_CounterfactualFactoryNotAllowed(t *testing.T) {
 	}
 }
 
-// TestSettleDeposit_CounterfactualDeployedWalletRejectsInnerSig pins that after the factory
-// deploys the wallet, a deposit simulation revert (lazily-installed validator) surfaces the
-// retry-guidance error instead of submitting a doomed deposit.
-func TestSettleDeposit_CounterfactualDeployedWalletRejectsInnerSig(t *testing.T) {
+// TestSettleDeposit_CounterfactualDeployedProceedsWithoutResimulation pins the post-6492-deploy
+// behavior: once the factory deploys the wallet, the helper proceeds to the real deposit and
+// performs no post-deploy deposit() simulation. The inner signature is now validated by the
+// verify-side deploy+deposit Multicall3 simulation and, definitively, by the on-chain
+// deposit() — so a (RPC-racy) standalone eth_call must not run here and cannot block settle.
+func TestSettleDeposit_CounterfactualDeployedProceedsWithoutResimulation(t *testing.T) {
 	signer := &fakeFacilitatorSigner{
 		getCode:         func(string) ([]byte, error) { return nil, nil }, // undeployed
 		sendTransaction: func(string, []byte) (string, error) { return "0x" + strings.Repeat("ab", 32), nil },
 		waitForReceipt: func(txHash string) (*evm.TransactionReceipt, error) {
 			return &evm.TransactionReceipt{Status: evm.TxStatusSuccess, TxHash: txHash}, nil
 		},
-		// Post-deploy deposit simulation reverts → deployed wallet rejects the inner sig.
+		// Guard: the helper must not run a post-deploy deposit() simulation.
 		readContract: func(fn string, _ ...interface{}) (interface{}, error) {
 			if fn == "deposit" {
-				return nil, errors.New("execution reverted: invalid signature")
+				t.Fatalf("helper must not run a post-deploy deposit() simulation")
 			}
 			return nil, nil
 		},
 	}
 	payload := counterfactualDepositPayload(t, common.HexToAddress(testErc6492Factory))
-	configTuple := ToContractChannelConfig(payload.ChannelConfig)
-	collectorData, err := batchsettlement.BuildErc3009CollectorData(
-		payload.Deposit.Authorization.Erc3009Authorization.ValidAfter,
-		payload.Deposit.Authorization.Erc3009Authorization.ValidBefore,
-		payload.Deposit.Authorization.Erc3009Authorization.Salt,
-		payload.Deposit.Authorization.Erc3009Authorization.Signature,
+
+	err := deployErc3009CounterfactualIfNeeded(
+		context.Background(), signer, payload, reqsWithExtra(), []string{testErc6492Factory},
 	)
 	if err != nil {
-		t.Fatalf("collector data: %v", err)
-	}
-	collectorAddr := common.HexToAddress(batchsettlement.ERC3009DepositCollectorAddress)
-
-	err = deployErc3009CounterfactualIfNeeded(
-		context.Background(), signer, payload, reqsWithExtra(), []string{testErc6492Factory},
-		configTuple, big.NewInt(1000), collectorAddr, collectorData,
-	)
-	var se *x402.SettleError
-	if !errors.As(err, &se) || se.ErrorReason != ErrDeployedInnerWalletSignatureUnsupported {
-		t.Fatalf("got err = %v, want %s", err, ErrDeployedInnerWalletSignatureUnsupported)
-	}
-	if se.ErrorMessage != MsgDeployedInnerWalletSignatureUnsupported {
-		t.Fatalf("got message %q, want retry-guidance message", se.ErrorMessage)
+		t.Fatalf("expected nil (deploy then proceed to deposit), got err=%v", err)
 	}
 	if signer.sendCalls != 1 {
 		t.Fatalf("expected exactly one deploy tx, sendCalls=%d", signer.sendCalls)
 	}
-	if signer.writeCalls != 0 {
-		t.Fatalf("expected no deposit tx submitted, writeCalls=%d", signer.writeCalls)
-	}
 }
 
-// TestSettleDeposit_CounterfactualHappyPath pins that an allowlisted, deployable wallet whose
-// post-deploy deposit simulation succeeds returns (nil, nil) so settle proceeds to deposit.
+// TestSettleDeposit_CounterfactualHappyPath pins that an allowlisted, deployable wallet is
+// deployed (one deploy tx) and the helper returns nil so settle proceeds to the deposit.
 func TestSettleDeposit_CounterfactualHappyPath(t *testing.T) {
 	signer := &fakeFacilitatorSigner{
 		getCode:         func(string) ([]byte, error) { return nil, nil }, // undeployed
@@ -217,23 +188,11 @@ func TestSettleDeposit_CounterfactualHappyPath(t *testing.T) {
 		waitForReceipt: func(txHash string) (*evm.TransactionReceipt, error) {
 			return &evm.TransactionReceipt{Status: evm.TxStatusSuccess, TxHash: txHash}, nil
 		},
-		readContract: func(fn string, _ ...interface{}) (interface{}, error) {
-			return nil, nil // deposit simulation succeeds
-		},
 	}
 	payload := counterfactualDepositPayload(t, common.HexToAddress(testErc6492Factory))
-	configTuple := ToContractChannelConfig(payload.ChannelConfig)
-	collectorData, _ := batchsettlement.BuildErc3009CollectorData(
-		payload.Deposit.Authorization.Erc3009Authorization.ValidAfter,
-		payload.Deposit.Authorization.Erc3009Authorization.ValidBefore,
-		payload.Deposit.Authorization.Erc3009Authorization.Salt,
-		payload.Deposit.Authorization.Erc3009Authorization.Signature,
-	)
-	collectorAddr := common.HexToAddress(batchsettlement.ERC3009DepositCollectorAddress)
 
 	err := deployErc3009CounterfactualIfNeeded(
 		context.Background(), signer, payload, reqsWithExtra(), []string{testErc6492Factory},
-		configTuple, big.NewInt(1000), collectorAddr, collectorData,
 	)
 	if err != nil {
 		t.Fatalf("expected nil to proceed to deposit, got err=%v", err)
@@ -253,8 +212,6 @@ func TestSettleDeposit_PlainSigNoDeploy(t *testing.T) {
 
 	err := deployErc3009CounterfactualIfNeeded(
 		context.Background(), signer, payload, reqsWithExtra(), []string{testErc6492Factory},
-		ToContractChannelConfig(payload.ChannelConfig), big.NewInt(1000),
-		common.HexToAddress(batchsettlement.ERC3009DepositCollectorAddress), []byte{0x01},
 	)
 	if err != nil {
 		t.Fatalf("expected no-op (nil) for plain sig, got err=%v", err)

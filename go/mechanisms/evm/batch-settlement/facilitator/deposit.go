@@ -366,7 +366,6 @@ func SettleDeposit(
 	if transferMethod == batchsettlement.AssetTransferMethodEip3009 {
 		if err := deployErc3009CounterfactualIfNeeded(
 			ctx, signer, payload, requirements, allowedFactories,
-			configTuple, depositAmount, collectorAddr, collectorData,
 		); err != nil {
 			return nil, err
 		}
@@ -697,19 +696,17 @@ func simulateCounterfactualErc3009Deposit(
 
 // deployErc3009CounterfactualIfNeeded deploys an undeployed ERC-6492 wallet before an
 // ERC-3009 deposit when the authorization is wrapped with allowlisted factory deployment
-// info. Returns nil when no deployment is needed (caller proceeds to deposit), or a
-// settle error when the factory is disallowed, the deploy reverts, or the deployed
-// wallet rejects the inner signature.
+// info. Returns nil when no deployment is needed or the wallet deployed successfully (the
+// caller proceeds to the real deposit), or a settle error when the factory is disallowed or
+// the deploy transaction reverts. The inner signature is validated by the verify-side
+// deploy+deposit Multicall3 simulation and, definitively, by the on-chain deposit() that
+// follows — so no post-deploy re-simulation is performed here.
 func deployErc3009CounterfactualIfNeeded(
 	ctx context.Context,
 	signer evm.FacilitatorEvmSigner,
 	payload *batchsettlement.BatchSettlementDepositPayload,
 	requirements types.PaymentRequirements,
 	allowedFactories []string,
-	configTuple interface{},
-	depositAmount *big.Int,
-	collectorAddr common.Address,
-	collectorData []byte,
 ) error {
 	config := payload.ChannelConfig
 	network := x402.Network(requirements.Network)
@@ -761,32 +758,6 @@ func deployErc3009CounterfactualIfNeeded(
 	// is itself the definitive signature check; a genuinely unsupported inner
 	// signature will revert there and be surfaced as ErrDepositTransactionFailed.
 	return nil
-}
-
-// simulateDeployedErc3009Deposit simulates a plain deposit() eth_call (the wallet is already
-// deployed at this point), returning whether it would succeed.
-func simulateDeployedErc3009Deposit(
-	ctx context.Context,
-	signer evm.FacilitatorEvmSigner,
-	configTuple interface{},
-	depositAmount *big.Int,
-	collectorAddr common.Address,
-	collectorData []byte,
-) (bool, error) {
-	_, err := signer.ReadContract(
-		ctx,
-		batchsettlement.BatchSettlementAddress,
-		batchsettlement.BatchSettlementDepositABI,
-		"deposit",
-		configTuple,
-		depositAmount,
-		collectorAddr,
-		collectorData,
-	)
-	if err != nil {
-		return false, err
-	}
-	return true, nil
 }
 
 // verifyPermit2DepositAuthorization validates the channel-bound Permit2

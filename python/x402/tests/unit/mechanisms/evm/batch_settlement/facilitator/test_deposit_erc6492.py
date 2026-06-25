@@ -11,16 +11,12 @@ try:
     from eth_abi import encode
 
     from x402.mechanisms.evm.batch_settlement.errors import (
-        ERR_DEPLOYED_INNER_WALLET_SIGNATURE_UNSUPPORTED,
         ERR_FACTORY_NOT_ALLOWED,
-        MSG_DEPLOYED_INNER_WALLET_SIGNATURE_UNSUPPORTED,
     )
     from x402.mechanisms.evm.batch_settlement.facilitator.deposit import (
         _deploy_erc3009_counterfactual_if_needed,
-        _DepositExecution,
     )
     from x402.mechanisms.evm.batch_settlement.facilitator.deposit_eip3009 import (
-        get_eip3009_deposit_collector_address,
         verify_eip3009_deposit_authorization,
     )
     from x402.mechanisms.evm.batch_settlement.types import (
@@ -151,38 +147,33 @@ class TestVerifyCounterfactual:
 
 
 class TestSettleCounterfactualDeploy:
-    def _execution(self) -> _DepositExecution:
-        # collector data is unused by the not-allowed path; a placeholder is fine.
-        return _DepositExecution(
-            kind="direct",
-            collector=get_eip3009_deposit_collector_address(),
-            collector_data=b"\x00",
-        )
-
     def test_factory_not_allowed_no_deploy(self):
         signer = _MockSigner(code=b"")
         resp = _deploy_erc3009_counterfactual_if_needed(
-            signer, _counterfactual_payload(), _requirements(), [], self._execution()
+            signer, _counterfactual_payload(), _requirements(), []
         )
         assert resp is not None
         assert resp.error_reason == ERR_FACTORY_NOT_ALLOWED
         assert signer.send_calls == 0
 
-    def test_deployed_wallet_rejects_inner_sig(self):
+    def test_deployed_proceeds_without_resimulation(self):
+        # Post-6492-deploy: the helper deploys the wallet then proceeds to the real deposit and
+        # performs no post-deploy deposit() simulation. The inner signature is validated by the
+        # verify-side deploy+deposit Multicall3 simulation and, definitively, by the on-chain
+        # deposit(). deposit_reverts=True would raise if a deposit() simulation were attempted,
+        # guarding against regressing to the old re-simulation behavior.
         signer = _MockSigner(code=b"", deposit_reverts=True)
         resp = _deploy_erc3009_counterfactual_if_needed(
-            signer, _counterfactual_payload(), _requirements(), [FACTORY], self._execution()
+            signer, _counterfactual_payload(), _requirements(), [FACTORY]
         )
-        assert resp is not None
-        assert resp.error_reason == ERR_DEPLOYED_INNER_WALLET_SIGNATURE_UNSUPPORTED
-        assert resp.error_message == MSG_DEPLOYED_INNER_WALLET_SIGNATURE_UNSUPPORTED
+        assert resp is None  # deployed, proceed to deposit
         assert signer.send_calls == 1  # wallet was deployed
-        assert signer.write_calls == 0  # no deposit submitted
+        assert signer.write_calls == 0  # no deposit submitted by the helper
 
     def test_happy_path_proceeds(self):
         signer = _MockSigner(code=b"", deposit_reverts=False)
         resp = _deploy_erc3009_counterfactual_if_needed(
-            signer, _counterfactual_payload(), _requirements(), [FACTORY], self._execution()
+            signer, _counterfactual_payload(), _requirements(), [FACTORY]
         )
         assert resp is None  # proceed to deposit
         assert signer.send_calls == 1
@@ -191,8 +182,6 @@ class TestSettleCounterfactualDeploy:
         payload = _counterfactual_payload()
         payload.deposit.authorization.erc3009_authorization.signature = "0x" + "11" * 65
         signer = _MockSigner(code=b"")
-        resp = _deploy_erc3009_counterfactual_if_needed(
-            signer, payload, _requirements(), [FACTORY], self._execution()
-        )
+        resp = _deploy_erc3009_counterfactual_if_needed(signer, payload, _requirements(), [FACTORY])
         assert resp is None
         assert signer.send_calls == 0

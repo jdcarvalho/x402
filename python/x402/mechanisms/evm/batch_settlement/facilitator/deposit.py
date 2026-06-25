@@ -31,7 +31,6 @@ from ..constants import BATCH_SETTLEMENT_ADDRESS
 from ..errors import (
     ERR_CUMULATIVE_AMOUNT_BELOW_CLAIMED,
     ERR_CUMULATIVE_EXCEEDS_BALANCE,
-    ERR_DEPLOYED_INNER_WALLET_SIGNATURE_UNSUPPORTED,
     ERR_DEPOSIT_SIMULATION_FAILED,
     ERR_DEPOSIT_TRANSACTION_FAILED,
     ERR_FACTORY_NOT_ALLOWED,
@@ -40,7 +39,6 @@ from ..errors import (
     ERR_INVALID_VOUCHER_SIGNATURE,
     ERR_RPC_READ_FAILED,
     ERR_SMART_WALLET_DEPLOYMENT_FAILED,
-    MSG_DEPLOYED_INNER_WALLET_SIGNATURE_UNSUPPORTED,
 )
 from ..types import DepositPayload
 from ..utils import coerce_bytes32
@@ -219,12 +217,12 @@ def settle_deposit(
             )
 
         # ERC-6492 counterfactual deposit: deploy the undeployed wallet (gated by the factory
-        # allowlist) before the deposit, then simulate with the inner signature to catch
-        # wallets whose validator is installed lazily.
+        # allowlist) before the deposit. The inner signature is validated by the verify-side
+        # deploy+deposit Multicall3 simulation and, definitively, by the on-chain deposit().
         transfer_method = _resolve_deposit_transfer_method(payload, requirements)
         if transfer_method == "eip3009":
             deploy_err = _deploy_erc3009_counterfactual_if_needed(
-                signer, payload, requirements, allowed_factories, execution
+                signer, payload, requirements, allowed_factories
             )
             if deploy_err is not None:
                 return deploy_err
@@ -351,13 +349,14 @@ def _deploy_erc3009_counterfactual_if_needed(
     payload: DepositPayload,
     requirements: PaymentRequirements,
     allowed_factories: list[str] | None,
-    execution: _DepositExecution,
 ) -> SettleResponse | None:
     """Deploy an undeployed ERC-6492 wallet before an ERC-3009 deposit.
 
-    Returns None when no deployment is needed (caller proceeds to deposit), or a terminal
-    SettleResponse when the factory is disallowed, the deploy reverts, or the deployed wallet
-    rejects the inner signature.
+    Returns None when no deployment is needed or the wallet deployed successfully (the caller
+    proceeds to the real deposit), or a terminal SettleResponse when the factory is disallowed
+    or the deploy reverts. The inner signature is validated by the verify-side deploy+deposit
+    Multicall3 simulation and, definitively, by the on-chain deposit() that follows — so no
+    post-deploy re-simulation is performed here.
     """
     assert payload.deposit is not None and payload.channel_config is not None
     network = str(requirements.network)
